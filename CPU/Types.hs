@@ -23,3 +23,5 @@ type Operand    = Word8
 type OPCode     = Word8
 type Address    = Word16
 type Pixel      = Word32 -- ^ RGB Value in hex.
+
+type Memory s = STUArray s Address Operand
