@@ -25,6 +25,8 @@ module CPU.Definition
     , getSP
     , setSP
     , alterSP
+    , push
+    , pull
 
       -- * Program counter
     , getPC
@@ -166,19 +168,37 @@ alterPC :: (Address -> Address) -> CPU s Address
 alterPC = alterVar pc
 
 -- ===========================================================================
--- = Stack pointer.
+-- = Stack.
 -- ===========================================================================
--- |
+-- | The stack's starting position.
+baseSP :: Address
+baseSP = 0x0100
+
+-- | Get the stack pointer value.
 getSP :: CPU s Word8
 getSP = getVar sp
 
--- |
+-- | Set a 8 bit value to the stack pointer.
 setSP :: Word8 -> CPU s ()
 setSP = setVar sp
 
--- |
+-- | Alter the stack pointer.
 alterSP :: (Word8 -> Word8) -> CPU s Word8
 alterSP = alterVar sp
+
+-- | Push a operand on the stack.
+push :: Operand -> CPU s ()
+push op = do
+    stackValue <- getSP
+    setSP $ stackValue - 1
+    writeMemory (baseSP + toAddr stackValue) op
+
+-- | Pull a operand from the stack.
+pull :: CPU s Operand
+pull = do
+    stackValue <- toAddr <$> alterSP (+1) -- Make address
+    readMemory $ baseSP + stackValue
+
 
 -- ===========================================================================
 -- = Status register including flags
