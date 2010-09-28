@@ -32,6 +32,8 @@ module CPU.Definition
     , getPC
     , setPC
     , alterPC
+    , pushPC
+    , pullPC
 
       -- * Status
     , getStatus
@@ -166,6 +168,17 @@ setPC = setVar pc
 -- | Alter the program counter.
 alterPC :: (Address -> Address) -> CPU s Address
 alterPC = alterVar pc
+
+-- | Pull the program counter off the stack
+pullPC :: CPU s Address
+pullPC = pull <#> pull
+
+-- | Push the program counter onto the stack
+pushPC :: CPU s ()
+pushPC = do 
+    (high, low) <- splitAddr <$> getPC
+    push high
+    push low
 
 -- ===========================================================================
 -- = Stack.
