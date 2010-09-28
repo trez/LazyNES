@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+
 module CPU.Definition
     (
       -- * The CPU Monad.
@@ -64,8 +65,9 @@ newtype CPU s a = CPU { runCPU :: CPUEnv s -> ST s a }
 
 instance Monad (CPU s) where
     return x = CPU $ \_ -> return x
-    m >>= f  = CPU $ \r -> do a <- runCPU m r
-                              runCPU (f a) r
+    m >>= f  = CPU $ \r -> do
+        a <- runCPU m r
+        runCPU (f a) r
 
 instance MonadReader (CPUEnv s) (CPU s) where
     ask       = CPU $ return
@@ -87,9 +89,9 @@ data CPUEnv s = CPUEnv
     , sp      :: STRef s Operand -- ^ Stack pointer, 8 bit
     , pc      :: STRef s Address -- ^ Program counter, 16 bit
     , status  :: STRef s Operand -- ^ Status register, 8 bit
-    , lowMem  :: Memory s -- ^ Memory range 0000 - 07FF
-    , ppuMem  :: Memory s -- ^ Memory range 2000 - 2007
-    , uppMem  :: Memory s -- ^ Memory range 4000 - FFFF
+    , lowMem  :: Memory s        -- ^ Memory range 0000 - 07FF
+    , ppuMem  :: Memory s        -- ^ Memory range 2000 - 2007
+    , uppMem  :: Memory s        -- ^ Memory range 4000 - FFFF
     }
 
 -- ---------------------------------------------------------------------------
