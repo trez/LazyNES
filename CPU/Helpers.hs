@@ -8,6 +8,7 @@ module CPU.Helpers
 
       -- * Addresses.
     , toAddr
+    , splitAddr
     , mkAddr
     , (<#>)
     ) where
@@ -28,6 +29,11 @@ bitBool n b = if b then (`setBit` n) else (`clearBit` n)
 toAddr :: Operand -> Address
 toAddr = fromIntegral
 
+-- | Splits a address into (high bits, low bits).
+splitAddr :: Address -> (Operand, Operand)
+splitAddr addr = ( fromIntegral $ addr `shiftR` 8 -- high
+                 , fromIntegral $ addr            -- low
+                 )
 -- | Build a 16-bit address from low and high components.
 mkAddr :: Operand -> Operand -> Address
 mkAddr low high = toAddr high `shiftL` 8 + toAddr low
