@@ -85,9 +85,9 @@ data CPUEnv s = CPUEnv
     , sp      :: STRef s Operand -- ^ Stack pointer, 8 bit
     , pc      :: STRef s Address -- ^ Program counter, 16 bit
     , status  :: STRef s Operand -- ^ Status register, 8 bit
-    , lowMem  :: STUArray s Address Operand -- ^ Memory range 0000 - 07FF
-    , ppuMem  :: STUArray s Address Operand -- ^ Memory range 2000 - 2007
-    , uppMem  :: STUArray s Address Operand -- ^ Memory range 4000 - FFFF
+    , lowMem  :: Memory s -- ^ Memory range 0000 - 07FF
+    , ppuMem  :: Memory s -- ^ Memory range 2000 - 2007
+    , uppMem  :: Memory s -- ^ Memory range 4000 - FFFF
     }
 
 -- ---------------------------------------------------------------------------
