@@ -43,6 +43,8 @@ module CPU.Definition
     , writeMemory
     , alterMemory
 
+    , fetch
+
       -- * Managing flags.
     , getFlagC, getFlagZ, getFlagI, getFlagD, getFlagB
     , getFlagQ, getFlagV, getFlagN
@@ -287,3 +289,14 @@ alterMemory addr f = do
     res <- f <$> readMemory addr
     writeMemory addr res
     return res
+
+{-| Fetches the address PC currently points to and updates PC
+ -}
+fetch :: CPU s OPCode
+fetch = do
+--    setCPUAction NOP -- FIXME
+    op <- getPC
+    setPC (op+1)
+    readMemory op
+
+
