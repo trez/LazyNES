@@ -9,6 +9,9 @@ module CPU.MemoryAddressing
   , relative
   , immediate
   , implicit
+  , fetchValue, fetchAddress
+  , storeValue
+  , Storage (..)
   ) where
 
 import CPU.Types
