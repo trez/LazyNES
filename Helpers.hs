@@ -1,4 +1,4 @@
-module CPU.Helpers
+module Helpers
     (
       -- * Bit
       bitBool
