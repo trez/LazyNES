@@ -2,28 +2,34 @@
 -- Module:      CPU.MemoryAddressing
 -- Copyright:   Tobias Vehkajärvi
 -- 
-module CPU.MemoryAddressing
-  ( zeropage, zeropageX, zeropageY
+module CPU.MemoryAddressing 
+  ( -- * Zero page
+    zeropage, zeropageX, zeropageY
+    -- * Absolute addressing
   , absolute, absoluteX, absoluteY
+    -- * Indirect addressing
   , indirect, indirectX, indirectY
   , relative
   , immediate
   , implicit
+  , accumulator
+    -- * Memory
+  , Storage (..)
   , fetchValue, fetchAddress
   , storeValue
-  , Storage (..)
   ) where
 
 import CPU.Types
-import CPU.Helpers
 import CPU.Definition
+import Helpers
 
 import Control.Applicative ((<$>))
 
-data Storage
-  = Accumulator
-  | Memory !Address
+data Storage =
+    Implicit
+  | Accumulator
   | Value Operand
+  | Memory !Address
 
 storeValue :: Storage -> Operand -> CPU s ()
 storeValue Accumulator   = setA
@@ -32,6 +38,7 @@ storeValue (Memory addr) = writeMemory addr
 fetchValue :: Storage -> CPU s Operand
 fetchValue Accumulator   = getA
 fetchValue (Memory addr) = readMemory addr
+fetchValue (Value v)     = return v
 
 fetchAddress (Memory addr) = return addr
 
@@ -85,6 +92,8 @@ absoluteX = Memory <$> absolutIndex getX
 absoluteY :: CPU s Storage
 absoluteY = Memory <$> absolutIndex getY
 
+{-| Adds the value of the index register to fetched absolute address.
+ -}
 absolutIndex :: CPU s Operand -> CPU s Address
 absolutIndex idx = address <+> (fromIntegral <$> idx)
 
@@ -127,4 +136,9 @@ immediate = Value <$> operand
 {-| 
  -}
 implicit :: CPU s Storage
-implicit = return Accumulator
+implicit = return Implicit
+
+{-| 
+ -}
+accumulator :: CPU s Storage
+accumulator = return Accumulator
