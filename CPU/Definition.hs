@@ -7,42 +7,29 @@ module CPU.Definition
     , CPUEnv (..)
 
       -- * Accumulator A
-    , getA
-    , setA
-    , alterA
+    , getA , setA , alterA
 
       -- * Register X
-    , getX
-    , setX
-    , alterX
+    , getX , setX , alterX
 
       -- * Register Y
-    , getY
-    , setY
-    , alterY
+    , getY , setY , alterY
 
       -- * Stack
-    , getSP
-    , setSP
-    , alterSP
+    , getSP , setSP , alterSP
     , push
     , pull
 
       -- * Program counter
-    , getPC
-    , setPC
-    , alterPC
+    , getPC , setPC , alterPC
+    , pushPC
+    , pullPC
 
       -- * Status
-    , getStatus
-    , setStatus
-    , alterStatus
+    , getStatus , setStatus , alterStatus
 
       -- * Memory
-    , readMemory
-    , writeMemory
-    , alterMemory
-
+    , readMemory , writeMemory , alterMemory
     , fetch
 
       -- * Managing flags.
@@ -57,8 +44,8 @@ import Control.Monad.Reader
 import Control.Applicative
 import Control.Monad (Functor)
 
+import Helpers (toAddr, bitBool, (<#>))
 import CPU.Types
-import CPU.Helpers
 
 newtype CPU s a = CPU { runCPU :: CPUEnv s -> ST s a }
 
@@ -168,6 +155,16 @@ setPC = setVar pc
 -- | Alter the program counter.
 alterPC :: (Address -> Address) -> CPU s Address
 alterPC = alterVar pc
+
+pushPC :: CPU s ()
+pushPC = do 
+    res <- getPC
+    push $ fromIntegral $ res `shiftR` 8 -- high 8 bits
+    push $ fromIntegral $ res            -- low 8 bits
+
+-- Pull the program counter from stack
+pullPC :: CPU s Address
+pullPC = pull <#> pull
 
 -- ===========================================================================
 -- = Stack.
@@ -283,20 +280,18 @@ writeMemory addr op
         writeArr uppMem 0x4014 op
     | otherwise = writeArr uppMem addr op
 
--- |
+{-|
+ -}
 alterMemory :: Address -> (Operand -> Operand) -> CPU s Operand
 alterMemory addr f = do
     res <- f <$> readMemory addr
     writeMemory addr res
     return res
 
-{-| Fetches the address PC currently points to and updates PC
+{-| Returns the byte that PC points to in memory and increments PC with one.
  -}
 fetch :: CPU s OPCode
 fetch = do
---    setCPUAction NOP -- FIXME
     op <- getPC
-    setPC (op+1)
+    setPC (op + 1)
     readMemory op
-
-
