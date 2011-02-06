@@ -4,31 +4,64 @@ module CPU.Instructions
       and
     , ora
     , eor
-    , xor
-    , asl
     , bit
+
     -- * Arithmetic.
+    , adc, sbc
+    , cmp
+    , cpx
+    , cpy
+
     -- * Stack operations.
+    , tsx, txs
+    , pha, pla
+    , php, plp
+
     -- * Register transfer.
+    , tax, txa
+    , tay, tya
+
     -- * Load and Store operations.
+    , lda, sta
+    , ldx, stx
+    , ldy, sty
+
     -- * Increments and Decrements.
-    , inc, inx, iny
-    , dec, dex, dey
+    , inc, dec
+    , inx, dex
+    , iny, dey
 
     -- * Shifts.
+    , asl, lsr
+    , rol, ror
+
     -- * Jumps and calls.
+    , jsr
+    , jmp
+    , rts
+
     -- * Branches.
     , bcs, bcc -- c
     , beq, bne -- z
     , bmi, bpl -- n
     , bvs, bvc -- v
+
     -- * Status flag changes.
+    , sec, clc -- c
+    , sed, cld -- d
+    , sei, cli -- i
+    , clv      -- v
+
     -- * System functions.
+    , brk
+    , nop
+    , rti
     ) where
 
 import Prelude hiding (and)
 
 import Control.Monad (when, unless)
+import Debug.Trace
 
 import Helpers
 import CPU.Types
@@ -36,7 +69,7 @@ import CPU.Definition
 import CPU.MemoryAddressing
 
 -- ---------------------------------------------------------------------------
--- Logical
+-- * Logical
 
 {-| Logical AND
  -  A,Z,N = A&M
@@ -68,8 +101,7 @@ bit p = do
   setFlagZ $ (acc .&. val) == 0
 
 -- ---------------------------------------------------------------------------
--- Increments and Decrements.
-
+-- * Increments and Decrements.
 {-| Decrement Mem
  -  M,Z,N = M-1
  -}
@@ -107,18 +139,93 @@ inx Implicit = alterX (+1) >>= setZN
 iny :: Storage -> CPU s ()
 iny Implicit = alterY (+1) >>= setZN
 
+-- ---------------------------------------------------------------------------
+-- * Arithmetic.
+{-| Addition with carry
+ -  A,Z,C,N = A+M+C
+ -}
+adc :: Storage -> CPU s ()
+adc s = do
+    v <- signed16 <$> fetchValue s
+    a <- signed16 <$> getA
+    c <- boolBit  <$> getFlagC
+    let temp = a + v + c
+    a' <- alterA . const . unsigned8 $ temp
+    setZN    $ a'
+    setFlagV $ ((complement $ a `xor` v) .&. (a `xor` temp)) `testBit` 7
+    setFlagC $ temp `testBit` 8
+
+{-| Subtraction with carry
+ -  A,Z,C,N = A-M-(1-C)
+ -}
+sbc :: Storage -> CPU s ()
+sbc s = do
+    v <- fetchValue s
+    adc (Value $ v `xor` 0xFF)
+
+cmp :: Storage -> CPU s ()
+cmp s = compares (fetchValue s) getA
+
+cpx :: Storage -> CPU s ()
+cpx s = compares (fetchValue s) getX
+
+cpy :: Storage -> CPU s ()
+cpy s = compares (fetchValue s) getY
+
+compares :: CPU s Operand -> CPU s Operand -> CPU s ()
+compares mem reg = do
+    a <- mem
+    b <- reg
+    setFlagC $ b >= a
+    setFlagZ $ a == b
+    setFlagN $ (b - a) < 0
+
+-- ---------------------------------------------------------------------------
+-- * Shifts.
 {-| Arithmetic Shift Left
  -  A,Z,C,N = A * 2
  -}
 asl :: Storage -> CPU s ()
 asl s = do
-    setCarryIf s (`testBit` 7)
-    val <- alterValue s ((`clearBit` 0) . (`shiftL` 1))
-    setZN val
+    v  <- fetchValue s
+    v' <- alterValue s $ (`clearBit` 0) . (`shiftL` 1)
+    setZN    $ v'
+    setFlagC $ v `testBit` 7
 
-setCarryIf :: Storage -> (Operand -> Bool) -> CPU s ()
-setCarryIf s f = fetchValue s >>= setFlagC . f
+{-| Logical Shift Right
+ -  A,Z,C,N = A * 2
+ -}
+lsr :: Storage -> CPU s ()
+lsr s = do
+    v  <- fetchValue s
+    v' <- alterValue s $ (`clearBit` 7) . (`shiftR` 1)
+    setZN    $ v'
+    setFlagC $ v `testBit` 0
 
+{-| Rotate Left
+ -  Z,N,C,M
+ -}
+rol :: Storage -> CPU s ()
+rol s =  do
+    v  <- fetchValue s
+    c  <- getFlagC
+    v' <- alterValue s $ (bitBool 0 c) . (`shiftL` 1)
+    setZN    $ v'
+    setFlagC $ v `testBit` 7
+
+{-| Rotate Right
+ -  Z,N,C,M
+ -}
+ror :: Storage -> CPU s ()
+ror s =  do
+    v  <- fetchValue s
+    c  <- getFlagC
+    v' <- alterValue s $ (bitBool 7 c) . (`shiftR` 1)
+    setZN    $ v'
+    setFlagC $ v `testBit` 0
+
+-- ---------------------------------------------------------------------------
+-- * Branches.
 {-| Branch if carry flag is set
  -}
 bcs :: Storage -> CPU s Bool
@@ -160,3 +267,191 @@ bvs (Memory addr) = getFlagV >>= \f -> when f (setPC addr) >> return f
 bvc :: Storage -> CPU s Bool
 bvc (Memory addr) = getFlagV >>= \f -> unless f (setPC addr) >> return f
 
+-- ---------------------------------------------------------------------------
+-- * System functions.
+{-| Set the break flag, force interrupt
+ -  B = 1
+ -}
+brk :: Storage -> CPU s ()
+brk Implicit = do
+    alterPC succ
+    pushPC
+    setFlagB True
+    getStatus >>= push
+    setFlagI True
+    readMemory 0xFFFE <#> readMemory 0xFFFF >>= setPC
+
+{- FIME: documentation
+ -}
+nop :: Storage -> CPU s ()
+nop Implicit = return ()
+
+{-| Return from Interrupt
+ -  C,Z,I,D,B,V,N,PC
+ -}
+rti :: Storage -> CPU s ()
+rti Implicit = do
+    pull   >>= setStatus
+    pullPC >>= setPC
+
+
+-- ---------------------------------------------------------------------------
+-- * Status flag changes.
+{-| Clear carry flag
+ -  C = 0
+ -}
+clc :: CPU s ()
+clc = setFlagC False
+
+{-| Clear decimal mode flag
+ -  D = 0
+ -}
+cld :: CPU s ()
+cld = setFlagD False
+
+{-| Clear interrupt disable flag
+ -  I = 0
+ -}
+cli :: CPU s ()
+cli = setFlagI False
+
+{-| Clear overflow flag
+ -  V = 0
+ -}
+clv :: CPU s ()
+clv = setFlagV False
+
+{-| Set carry flag
+ -  C = 1
+ -}
+sec :: CPU s ()
+sec = setFlagC True
+
+{-| Set decimal mode flag
+ -  D = 1
+ -}
+sed :: CPU s ()
+sed = setFlagD True
+
+{-| Set interrupt disable flag
+ -  I = 1
+ -}
+sei :: CPU s ()
+sei = setFlagI True
+
+-- ---------------------------------------------------------------------------
+-- * Load and Store operations.
+{-| Load memory into accumulator
+ -  A,Z,N = M
+ -}
+lda :: Storage -> CPU s ()
+lda s = fetchValue s >>= alterA . const >>= setZN
+
+{-| Load memory into index x
+ -  X,Z,N = M
+ -}
+ldx :: Storage -> CPU s ()
+ldx s = fetchValue s >>= alterX . const >>= setZN
+
+{-| Load memory into index y
+ -  Y,Z,N = M
+ -}
+ldy :: Storage -> CPU s ()
+ldy s = fetchValue s >>= alterY . const >>= setZN
+
+{-| Store accumulator in memory
+ -  M = A
+ -}
+sta :: Storage -> CPU s ()
+sta (Memory addr) = getA >>= writeMemory addr
+
+{-| Store index register x in memory
+ -  M = X
+ -}
+stx :: Storage -> CPU s ()
+stx (Memory addr) = getX >>= writeMemory addr
+
+{-| Store index register y in memory
+ -  M = Y
+ -}
+sty :: Storage -> CPU s ()
+sty (Memory addr) = getY >>= writeMemory addr
+
+{-| Transfer A to X
+ -  Z,N,X = A
+ -}
+tax :: Storage -> CPU s ()
+tax Implicit = getA >>= alterX . const >>= setZN
+
+{-| Transfer A to Y
+ -  Z,N,Y = A
+ -}
+tay :: Storage -> CPU s ()
+tay Implicit = getA >>= alterY . const >>= setZN
+
+{-| Transfer X to A
+ -  Z,N,A = X
+ -}
+txa :: Storage -> CPU s ()
+txa Implicit = getX >>= alterA . const >>= setZN
+
+{-| Transfer Y to A
+ -  Z,N,A = Y
+ -}
+tya :: Storage -> CPU s ()
+tya Implicit = getY >>= alterA . const >>= setZN
+
+-- ---------------------------------------------------------------------------
+-- * Stack operations.
+{-| Transfer X to SP
+ -  SP = X
+ -}
+txs :: Storage -> CPU s ()
+txs Implicit = getX >>= alterSP . const . fromIntegral >>= setZN . fromIntegral
+
+{-| Transfer SP to X
+ -  Z,N,X = SP
+ -}
+tsx :: Storage -> CPU s ()
+tsx Implicit = getSP >>= alterX . const . fromIntegral >>= setZN
+
+{-| Push a to stack
+ -  M(SP) = A
+ -}
+pha :: Storage -> CPU s ()
+pha Implicit = getA >>= push
+
+{-| Push status to stack
+ -  M(SP) = P
+ -}
+php :: Storage -> CPU s ()
+php Implicit = setFlagB True >> getStatus >>= push
+
+{-| Pull a from stack
+ -  A,Z,N = M(SP)
+ -}
+pla :: Storage -> CPU s ()
+pla Implicit = pull >>= \val -> setA val >> setZN val
+
+{-| Pull status from stack
+ -  P = M(SP)
+ -}
+plp :: Storage -> CPU s ()
+plp Implicit = pull >>= setStatus
+
+-- ---------------------------------------------------------------------------
+-- * Jumps and calls.
+{-| Jump to subrutine
+ -}
+jsr :: Storage -> CPU s ()
+jsr s = alterPC (subtract 1) >> pushPC >> jmp s
+
+{-| Jump to address
+ -}
+jmp :: Storage -> CPU s ()
+jmp (Memory addr) = setPC addr
+
+{-| Return to subrutine
+ -}
+rts :: CPU s ()
+rts = pullPC >>= setPC . (+1)
