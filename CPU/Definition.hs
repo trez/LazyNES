@@ -5,6 +5,7 @@ module CPU.Definition
       CPU
     , runCPU
     , CPUEnv (..)
+    , (<$>)
 
       -- * Accumulator A
     , getA , setA , alterA
@@ -74,9 +75,9 @@ data CPUEnv s = CPUEnv
     , sp      :: STRef s Operand -- ^ Stack pointer, 8 bit
     , pc      :: STRef s Address -- ^ Program counter, 16 bit
     , status  :: STRef s Operand -- ^ Status register, 8 bit
-    , lowMem  :: Memory s -- ^ Memory range 0000 - 07FF
-    , ppuMem  :: Memory s -- ^ Memory range 2000 - 2007
-    , uppMem  :: Memory s -- ^ Memory range 4000 - FFFF
+    , lowMem  :: Memory s        -- ^ Memory range 0000 - 07FF
+    , ppuMem  :: Memory s        -- ^ Memory range 2000 - 2007
+    , uppMem  :: Memory s        -- ^ Memory range 4000 - FFFF
     }
 
 -- ---------------------------------------------------------------------------
@@ -156,13 +157,14 @@ setPC = setVar pc
 alterPC :: (Address -> Address) -> CPU s Address
 alterPC = alterVar pc
 
+-- | Push the program counter onto the stack.
 pushPC :: CPU s ()
 pushPC = do 
     res <- getPC
     push $ fromIntegral $ res `shiftR` 8 -- high 8 bits
     push $ fromIntegral $ res            -- low 8 bits
 
--- Pull the program counter from stack
+-- | Pull the program counter from stack and returns the address.
 pullPC :: CPU s Address
 pullPC = pull <#> pull
 
@@ -197,7 +199,6 @@ pull :: CPU s Operand
 pull = do
     stackValue <- toAddr <$> alterSP (+1) -- Make address
     readMemory $ baseSP + stackValue
-
 
 -- ===========================================================================
 -- = Status register including flags
@@ -246,7 +247,7 @@ setFlagQ = setFlagBit 5
 setFlagV = setFlagBit 6
 setFlagN = setFlagBit 7
 
--- | Set Z and N flag.
+-- | Set Z if operand is zero and set N flag if operand has signed bit set.
 setZN :: Operand -> CPU s ()
 setZN oper = do
     setFlagZ $ oper == 0

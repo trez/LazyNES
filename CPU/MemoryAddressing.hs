@@ -13,10 +13,12 @@ module CPU.MemoryAddressing
   , immediate
   , implicit
   , accumulator
+
     -- * Memory
   , Storage (..)
   , fetchValue, fetchAddress
   , storeValue
+  , alterValue
   ) where
 
 import CPU.Types
@@ -40,6 +42,9 @@ fetchValue Accumulator   = getA
 fetchValue (Memory addr) = readMemory addr
 fetchValue (Value v)     = return v
 
+alterValue :: Storage -> (Operand -> Operand) -> CPU s Operand
+alterValue Accumulator   = alterA
+alterValue (Memory addr) = alterMemory addr
 fetchAddress (Memory addr) = return addr
 
 {-| Fetch an 8 bit address operand from the stack
@@ -125,20 +130,17 @@ indirectBug m = do
 relative :: CPU s Storage
 relative = Memory <$> ((fromIntegral . signed) <$> operand) <+> getPC
 
-signed :: Word8 -> Int8
-signed = fromIntegral
-
 {-| Constant 8 bit value.
  -}
 immediate :: CPU s Storage
 immediate = Value <$> operand
 
-{-| 
+{-|
  -}
 implicit :: CPU s Storage
 implicit = return Implicit
 
-{-| 
+{-|
  -}
 accumulator :: CPU s Storage
 accumulator = return Accumulator

@@ -5,7 +5,7 @@ module CPU.Cycle
 
 import Prelude hiding (and)
 
-import Helpers (ifM)
+import Helpers
 import CPU.Types
 import CPU.Definition
 import CPU.MemoryAddressing
@@ -20,28 +20,28 @@ execute op = case op of
     0x25 -> zeropage    >>= and >> return 3
     0x35 -> zeropageX   >>= and >> return 4
     0x2D -> absolute    >>= and >> return 4
-    0x3D -> absoluteX   >>= and >> return 4
-    0x39 -> absoluteY   >>= and >> return 4
+    0x3D -> absoluteX   >>= and >> return 4 -- +1
+    0x39 -> absoluteY   >>= and >> return 4 -- +1
     0x21 -> indirectX   >>= and >> return 6
-    0x31 -> indirectY   >>= and >> return 5
+    0x31 -> indirectY   >>= and >> return 5 -- +1
     -- OR
     0x09 -> immediate   >>= ora >> return 2
     0x05 -> zeropage    >>= ora >> return 3
     0x15 -> zeropageX   >>= ora >> return 4
     0x0D -> absolute    >>= ora >> return 4
-    0x1D -> absoluteX   >>= ora >> return 4
-    0x19 -> absoluteY   >>= ora >> return 4
+    0x1D -> absoluteX   >>= ora >> return 4 -- +1
+    0x19 -> absoluteY   >>= ora >> return 4 -- +1
     0x01 -> indirectX   >>= ora >> return 6
-    0x11 -> indirectY   >>= ora >> return 5
+    0x11 -> indirectY   >>= ora >> return 5 -- +1
     -- EOR
     0x49 -> immediate   >>= eor >> return 2
     0x45 -> zeropage    >>= eor >> return 3
     0x55 -> zeropageX   >>= eor >> return 4
     0x4D -> absolute    >>= eor >> return 4
-    0x5D -> absoluteX   >>= eor >> return 4
-    0x59 -> absoluteY   >>= eor >> return 4
+    0x5D -> absoluteX   >>= eor >> return 4 -- +1
+    0x59 -> absoluteY   >>= eor >> return 4 -- +1
     0x41 -> indirectX   >>= eor >> return 6
-    0x51 -> indirectY   >>= eor >> return 5
+    0x51 -> indirectY   >>= eor >> return 5 -- +1
     -- BIT
     0x24 -> zeropage    >>= bit >> return 3
     0x2C -> absolute    >>= bit >> return 4
@@ -62,14 +62,61 @@ execute op = case op of
     0xE8 -> implicit    >>= inx >> return 2
     0xC8 -> implicit    >>= iny >> return 2
     -- BCS / BCC
-    0xB0 -> relative    >>= bcs >>= \b -> ifM b 3 2
-    0x90 -> relative    >>= bcc >>= \b -> ifM b 3 2
+    0xB0 -> relative    >>= bcs >>= \b -> ifB b 3 2 -- +1, +2
+    0x90 -> relative    >>= bcc >>= \b -> ifB b 3 2 -- +1, +2
     -- BEQ / BNE
-    0xF0 -> relative    >>= beq >>= \b -> ifM b 3 2
-    0xD0 -> relative    >>= bne >>= \b -> ifM b 3 2
+    0xF0 -> relative    >>= beq >>= \b -> ifB b 3 2 -- +1, +2
+    0xD0 -> relative    >>= bne >>= \b -> ifB b 3 2 -- +1, +2
     -- BMI / BPL
-    0x30 -> relative    >>= bmi >>= \b -> ifM b 3 2
-    0x10 -> relative    >>= bpl >>= \b -> ifM b 3 2
+    0x30 -> relative    >>= bmi >>= \b -> ifB b 3 2 -- +1, +2
+    0x10 -> relative    >>= bpl >>= \b -> ifB b 3 2 -- +1, +2
     -- BVC / BVS
-    0x50 -> relative    >>= bvc >>= \b -> ifM b 3 2
-    0x70 -> relative    >>= bvs >>= \b -> ifM b 3 2
+    0x50 -> relative    >>= bvc >>= \b -> ifB b 3 2 -- +1, +2
+    0x70 -> relative    >>= bvs >>= \b -> ifB b 3 2 -- +1, +2
+    -- ASL
+    0x0A -> accumulator >>= asl >> return 2
+    0x06 -> zeropage    >>= asl >> return 5
+    0x16 -> zeropageX   >>= asl >> return 6
+    0x0E -> absolute    >>= asl >> return 6
+    0x1E -> absoluteX   >>= asl >> return 7
+    -- BRK
+    0x00 -> implicit    >>= brk >> return 7
+    -- NOP
+    0xEA -> implicit    >>= nop >> return 2
+    -- LDA
+    0xA9 -> immediate   >>= lda >> return 2
+    0xA5 -> zeropage    >>= lda >> return 3
+    0xB5 -> zeropageX   >>= lda >> return 4
+    0xAD -> absolute    >>= lda >> return 4
+    0xBD -> absoluteX   >>= lda >> return 4 -- +1
+    0xB9 -> absoluteX   >>= lda >> return 4 -- +1
+    0xA1 -> indirectX   >>= lda >> return 6
+    0xB1 -> indirectY   >>= lda >> return 5 -- +1
+    -- LDX
+    0xA2 -> immediate   >>= ldx >> return 2
+    0xA6 -> zeropage    >>= ldx >> return 3
+    0xB6 -> zeropageX   >>= ldx >> return 4
+    0xAE -> absolute    >>= ldx >> return 4
+    0xBE -> absoluteY   >>= ldx >> return 4 -- +1
+    -- LDY
+    0xA0 -> immediate   >>= ldy >> return 2
+    0xA4 -> zeropage    >>= ldy >> return 3
+    0xB4 -> zeropageX   >>= ldy >> return 4
+    0xAC -> absolute    >>= ldy >> return 4
+    0xBC -> absoluteX   >>= ldy >> return 4 -- +1
+    -- STA
+    0x85 -> zeropage    >>= sta >> return 3
+    0x95 -> zeropageX   >>= sta >> return 4
+    0x8D -> absolute    >>= sta >> return 4
+    0x9D -> absoluteX   >>= sta >> return 5
+    0x99 -> absoluteY   >>= sta >> return 5
+    0x81 -> indirectX   >>= sta >> return 6
+    0x91 -> indirectY   >>= sta >> return 6
+    -- STX
+    0x86 -> zeropage    >>= stx >> return 3
+    0x96 -> zeropageY   >>= stx >> return 4
+    0x8E -> absolute    >>= stx >> return 4
+    -- STY
+    0x84 -> zeropage    >>= sty >> return 3
+    0x94 -> zeropageX   >>= sty >> return 4
+    0x8C -> absolute    >>= sty >> return 4
