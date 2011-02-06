@@ -1,5 +1,8 @@
--- * | Main
-module Main where
+module Main
+    (
+      -- * Main
+      main
+    ) where
 
 import Control.Monad
 import Debug.Trace
@@ -40,7 +43,6 @@ initCPU = do
         `ap` newArray (0x0000, 0x07FF) 0x0   -- | Lower memory
         `ap` newArray (0x2000, 0x2007) 0x0   -- | PPU registers
         `ap` newArray (0x4000, 0xFFFF) 0x0   -- | Upper memory
-
 
 testADC = do
     Prelude.and <$> mapM test testCasesADC
