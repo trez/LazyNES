@@ -300,44 +300,44 @@ rti Implicit = do
 {-| Clear carry flag
  -  C = 0
  -}
-clc :: CPU s ()
-clc = setFlagC False
+clc :: Storage -> CPU s ()
+clc Implicit = setFlagC False
 
 {-| Clear decimal mode flag
  -  D = 0
  -}
-cld :: CPU s ()
-cld = setFlagD False
+cld :: Storage -> CPU s ()
+cld Implicit = setFlagD False
 
 {-| Clear interrupt disable flag
  -  I = 0
  -}
-cli :: CPU s ()
-cli = setFlagI False
+cli :: Storage -> CPU s ()
+cli Implicit = setFlagI False
 
 {-| Clear overflow flag
  -  V = 0
  -}
-clv :: CPU s ()
-clv = setFlagV False
+clv :: Storage -> CPU s ()
+clv Implicit = setFlagV False
 
 {-| Set carry flag
  -  C = 1
  -}
-sec :: CPU s ()
-sec = setFlagC True
+sec :: Storage -> CPU s ()
+sec Implicit = setFlagC True
 
 {-| Set decimal mode flag
  -  D = 1
  -}
-sed :: CPU s ()
-sed = setFlagD True
+sed :: Storage -> CPU s ()
+sed Implicit = setFlagD True
 
 {-| Set interrupt disable flag
  -  I = 1
  -}
-sei :: CPU s ()
-sei = setFlagI True
+sei :: Storage -> CPU s ()
+sei Implicit = setFlagI True
 
 -- ---------------------------------------------------------------------------
 -- * Load and Store operations.
@@ -453,5 +453,5 @@ jmp (Memory addr) = setPC addr
 
 {-| Return to subrutine
  -}
-rts :: CPU s ()
-rts = pullPC >>= setPC . (+1)
+rts :: Storage -> CPU s ()
+rts Implicit = pullPC >>= setPC . (+1)
