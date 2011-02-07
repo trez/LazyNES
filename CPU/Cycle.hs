@@ -11,11 +11,11 @@ import CPU.Definition
 import CPU.MemoryAddressing
 import CPU.Instructions
 
-{-| Executes an instruction.
- -}
+-- | Looks up the correct memory addressing and instruction for a specific 
+-- opcode and executes it and returns the number of cpu cycles.
 execute :: OPCode -> CPU s Int
 execute op = case op of
-    -- * Logical
+    -- Logical
     0x29 -> immediate   >>= and >> return 2
     0x25 -> zeropage    >>= and >> return 3
     0x35 -> zeropageX   >>= and >> return 4
@@ -46,7 +46,7 @@ execute op = case op of
     0x24 -> zeropage    >>= bit >> return 3
     0x2C -> absolute    >>= bit >> return 4
 
-    -- * Arithmetic.
+    -- Arithmetic.
     0x69 -> immediate   >>= adc >> return 2
     0x65 -> zeropage    >>= adc >> return 3
     0x75 -> zeropageX   >>= adc >> return 4
@@ -82,7 +82,7 @@ execute op = case op of
     0xC4 -> zeropage    >>= cpy >> return 3
     0xCC -> absolute    >>= cpy >> return 4
 
-    -- * Stack operations.
+    -- Stack operations.
     0xBA -> implicit    >>= tsx >> return 2
     0x9A -> implicit    >>= txs >> return 2
     0x48 -> implicit    >>= pha >> return 3
@@ -90,13 +90,13 @@ execute op = case op of
     0x68 -> implicit    >>= pla >> return 4
     0x28 -> implicit    >>= plp >> return 4
 
-    -- * Register transfer.
+    -- Register transfer.
     0x8A -> implicit    >>= txa >> return 2
     0x98 -> implicit    >>= tya >> return 2
     0xAA -> implicit    >>= tax >> return 2
     0xA8 -> implicit    >>= tay >> return 2
  
-    -- * Load and Store operations.
+    -- Load and Store operations.
     0xA9 -> immediate   >>= lda >> return 2
     0xA5 -> zeropage    >>= lda >> return 3
     0xB5 -> zeropageX   >>= lda >> return 4
@@ -134,7 +134,7 @@ execute op = case op of
     0x94 -> zeropageX   >>= sty >> return 4
     0x8C -> absolute    >>= sty >> return 4
 
-    -- * Increments and Decrements.
+    -- Increments and Decrements.
     0xC6 -> zeropage    >>= dec >> return 5
     0xD6 -> zeropageX   >>= dec >> return 6
     0xCE -> absolute    >>= dec >> return 6
@@ -149,7 +149,7 @@ execute op = case op of
     0xE8 -> implicit    >>= inx >> return 2
     0xC8 -> implicit    >>= iny >> return 2
 
-    -- * Shifts.
+    -- Shifts.
     0x0A -> accumulator >>= asl >> return 2
     0x06 -> zeropage    >>= asl >> return 5
     0x16 -> zeropageX   >>= asl >> return 6
@@ -174,7 +174,7 @@ execute op = case op of
     0x2E -> absolute    >>= rol >> return 6
     0x3E -> absoluteX   >>= rol >> return 7
  
-    -- * Jumps and calls.
+    -- Jumps and calls.
     0x20 -> absolute    >>= jsr >> return 6
 
     0x4C -> absolute    >>= jmp >> return 3
@@ -182,7 +182,7 @@ execute op = case op of
 
     0x60 -> implicit    >>= rts >> return 6
 
-    -- * Branches.
+    -- Branches.
     0xB0 -> relative    >>= bcs >>= \b -> ifB b 3 2 -- +1, +2
     0x90 -> relative    >>= bcc >>= \b -> ifB b 3 2 -- +1, +2
 
@@ -195,7 +195,7 @@ execute op = case op of
     0x50 -> relative    >>= bvc >>= \b -> ifB b 3 2 -- +1, +2
     0x70 -> relative    >>= bvs >>= \b -> ifB b 3 2 -- +1, +2
 
-    -- * Status flag changes.
+    -- Status flag changes.
     0x38 -> implicit    >>= sec >> return 2
     0xF8 -> implicit    >>= sed >> return 2
     0x78 -> implicit    >>= sei >> return 2
@@ -205,7 +205,7 @@ execute op = case op of
     0x58 -> implicit    >>= cli >> return 2
     0xB8 -> implicit    >>= clv >> return 2
 
-    -- * System functions.
+    -- System functions.
     0x00 -> implicit    >>= brk >> return 7
     0x40 -> implicit    >>= rti >> return 6
     0xEA -> implicit    >>= nop >> return 2
