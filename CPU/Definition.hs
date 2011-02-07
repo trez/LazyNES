@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-- | The CPU definitions.
 module CPU.Definition
     (
       -- * The CPU Monad.
@@ -49,6 +50,7 @@ import Control.Monad (Functor)
 import Helpers (toAddr, bitBool, (<#>))
 import CPU.Types
 
+-- | The CPU monad.
 newtype CPU s a = CPU { runCPU :: CPUEnv s -> ST s a }
 
 instance Monad (CPU s) where
@@ -99,9 +101,9 @@ getVar   f     = CPU $ \r -> readSTRef (f r)
 alterVar f g   = CPU $ \r -> let r' = f r in modifySTRef r' g >> readSTRef r'
 alterVar_ f g  = CPU $ \r -> modifySTRef (f r) g
 
--- ===========================================================================
--- = Accumulator (8 bit).
--- ===========================================================================
+{-----------------------------------------------------------------------------
+  * Accumulator (8 bit).
+-----------------------------------------------------------------------------}
 -- | Get the value of accumulator A from the environment.
 getA :: CPU s Operand
 getA = getVar aReg
@@ -114,9 +116,9 @@ setA = setVar aReg
 alterA :: (Operand -> Operand) -> CPU s Operand
 alterA = alterVar aReg
 
--- ===========================================================================
--- = X Register (8 bit).
--- ===========================================================================
+{-----------------------------------------------------------------------------
+  * X Register (8 bit).
+-----------------------------------------------------------------------------}
 -- | Get a 8 bit value from the X register.
 getX :: CPU s Operand
 getX = getVar xReg
@@ -129,9 +131,9 @@ setX = setVar xReg
 alterX :: (Operand -> Operand) -> CPU s Operand
 alterX = alterVar xReg
 
--- ===========================================================================
--- = Y Register.
--- ===========================================================================
+{-----------------------------------------------------------------------------
+  * Y Register.
+-----------------------------------------------------------------------------}
 -- | Get a 8 bit value from the Y register.
 getY :: CPU s Operand
 getY = getVar yReg
@@ -144,9 +146,9 @@ setY = setVar yReg
 alterY :: (Operand -> Operand) -> CPU s Operand
 alterY = alterVar yReg
 
--- ===========================================================================
--- = Program counter.
--- ===========================================================================
+{-----------------------------------------------------------------------------
+  * Program counter.
+-----------------------------------------------------------------------------}
 -- | Get the 16 bit program counter value.
 getPC :: CPU s Address
 getPC = getVar pc
@@ -170,10 +172,10 @@ pushPC = do
 pullPC :: CPU s Address
 pullPC = pull <#> pull
 
--- ===========================================================================
--- = Stack.
--- ===========================================================================
--- | The stack's starting position.
+{-----------------------------------------------------------------------------
+  * Stack.
+-----------------------------------------------------------------------------}
+-- | The stack starting position.
 baseSP :: Address
 baseSP = 0x0100
 
@@ -202,9 +204,9 @@ pull = do
     stackValue <- toAddr <$> alterSP (+1) -- Make address
     readMemory $ baseSP + stackValue
 
--- ===========================================================================
--- = Status register including flags
--- ===========================================================================
+{-----------------------------------------------------------------------------
+  * Status register including flags.
+-----------------------------------------------------------------------------}
 -- |
 getStatus :: CPU s Operand
 getStatus = getVar status
@@ -225,7 +227,6 @@ getFlagBit x = (`testBit` x) <$> getStatus
 setFlagBit :: Int -> Bool -> CPU s ()
 setFlagBit x = alterStatus . bitBool x
 
--- |
 getFlagC, getFlagZ, getFlagI, getFlagD, getFlagB, getFlagQ, getFlagV
     , getFlagN :: CPU s Bool
 getFlagC = getFlagBit 0
@@ -237,7 +238,6 @@ getFlagQ = getFlagBit 5
 getFlagV = getFlagBit 6
 getFlagN = getFlagBit 7
 
--- |
 setFlagC, setFlagZ, setFlagI, setFlagD, setFlagB, setFlagQ, setFlagV
     , setFlagN :: Bool -> CPU s ()
 setFlagC = setFlagBit 0
@@ -250,14 +250,18 @@ setFlagV = setFlagBit 6
 setFlagN = setFlagBit 7
 
 -- | Set Z if operand is zero and set N flag if operand has signed bit set.
+--
+-- > do setZN 0
+-- >    (True  ==) <$> getFlagZ
+-- >    (False ==) <$> getFlagN
 setZN :: Operand -> CPU s ()
 setZN oper = do
     setFlagZ $ oper == 0
     setFlagN $ oper `testBit` 7 -- check if last bit is set.
 
--- ===========================================================================
--- = Memory
--- ===========================================================================
+{-----------------------------------------------------------------------------
+  * Memory.
+-----------------------------------------------------------------------------}
 -- |
 readMemory  :: Address -> CPU s Operand
 readMemory addr
@@ -283,16 +287,14 @@ writeMemory addr op
         writeArr uppMem 0x4014 op
     | otherwise = writeArr uppMem addr op
 
-{-|
- -}
+-- |
 alterMemory :: Address -> (Operand -> Operand) -> CPU s Operand
 alterMemory addr f = do
     res <- f <$> readMemory addr
     writeMemory addr res
     return res
 
-{-| Returns the byte that PC points to in memory and increments PC with one.
- -}
+-- | Returns the byte that PC points to in memory and increments PC with one.
 fetch :: CPU s OPCode
 fetch = do
     op <- getPC

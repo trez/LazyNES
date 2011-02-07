@@ -34,15 +34,15 @@ main = do
 initCPU :: ST s (CPUEnv s)
 initCPU = do
     return CPUEnv
-        `ap` newSTRef 0x0                    -- | A
-        `ap` newSTRef 0x0                    -- | X
-        `ap` newSTRef 0x0                    -- | Y
-        `ap` newSTRef 0xFF                   -- | SP
-        `ap` newSTRef 0x8000                 -- | PC
-        `ap` newSTRef 0x0                    -- | Status
-        `ap` newArray (0x0000, 0x07FF) 0x0   -- | Lower memory
-        `ap` newArray (0x2000, 0x2007) 0x0   -- | PPU registers
-        `ap` newArray (0x4000, 0xFFFF) 0x0   -- | Upper memory
+        `ap` newSTRef 0x0                    -- A
+        `ap` newSTRef 0x0                    -- X
+        `ap` newSTRef 0x0                    -- Y
+        `ap` newSTRef 0xFF                   -- SP
+        `ap` newSTRef 0x8000                 -- PC
+        `ap` newSTRef 0x0                    -- Status
+        `ap` newArray (0x0000, 0x07FF) 0x0   -- Lower memory
+        `ap` newArray (0x2000, 0x2007) 0x0   -- PPU registers
+        `ap` newArray (0x4000, 0xFFFF) 0x0   -- Upper memory
 
 testADC = do
     Prelude.and <$> mapM test testCasesADC
