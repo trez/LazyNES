@@ -235,7 +235,6 @@ bne (Memory addr) = getFlagZ >>= \f -> unless f (setPC addr) >> return f
 bmi :: Storage -> CPU s Bool
 bmi (Memory addr) = getFlagN >>= \f -> when f (setPC addr) >> return f
 
-
 -- | Branch if negative flag is clear
 bpl :: Storage -> CPU s Bool
 bpl (Memory addr) = getFlagN >>= \f -> unless f (setPC addr) >> return f
@@ -272,7 +271,6 @@ rti :: Storage -> CPU s ()
 rti Implicit = do
     pull   >>= setStatus
     pullPC >>= setPC
-
 
 {-----------------------------------------------------------------------------
   * Status flag changes.
