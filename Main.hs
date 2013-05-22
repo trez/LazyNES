@@ -10,26 +10,36 @@ import Debug.Trace
 import Helpers
 import CPU.Types
 import CPU.Definition
-import CPU.MemoryAddressing
+import CPU.Addressing
 import CPU.Instructions
 import CPU.Cycle
 
 -- | Main function
+main :: IO ()
 main = do
-    putStrLn "Running LazyNES, almost :)"
+    putStrLn "Running LazyNES Test(s)"
     let i = runST $ do
         env <- initCPU
         runCPU m env
+    putStr "Testing ADC ... "
     putStrLn (show i)
   where
     m = do
-      inx Implicit
-      inx Implicit
+      implicit >>= inx
+      implicit >>= inx
       setFlagC True
       writeMemory 0x2000 1
-      adc $ Memory 0x2000
+      adc $ makeAbsoluteAddress 0x2000
       getA
       testADC
+
+makeAbsoluteAddress addr = Addressing { mode      = ABS
+                                      , pageCross = False
+                                      , storage   = Memory addr }
+
+makeConstantValue val = Addressing { mode      = IMM
+                                   , pageCross = False
+                                   , storage   = Value val }
 
 initCPU :: ST s (CPUEnv s)
 initCPU = do
@@ -50,13 +60,14 @@ testADC = do
     test ((a, v, c), (v', cF, oF)) = do
       setFlagC c
       setA a
-      adc (Value v)
+      adc $ makeConstantValue v
       b1 <- (v' ==) <$> getA
       b2 <- (cF ==) <$> getFlagC
       b3 <- (oF ==) <$> getFlagV
       return (b1 && b2 && b3)
 
 testCasesADC =
+ --    X  + Y     (+1)  =  Res  'C'    'V'
     [((88,  70,   True),  (159, False, True))  -- 88  + 70 + 1 = 159
     ,((58,  46,   True),  (105, False, False)) -- 58  + 46 + 1 = 105
     ,((1,   1,    True),  (3,   False, False)) -- 1   + 1  + 1 = 3

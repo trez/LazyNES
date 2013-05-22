@@ -250,7 +250,6 @@ setFlagV = setFlagBit 6
 setFlagN = setFlagBit 7
 
 -- | Set Z if operand is zero and set N flag if operand has signed bit set.
---
 -- > do setZN 0
 -- >    (True  ==) <$> getFlagZ
 -- >    (False ==) <$> getFlagN

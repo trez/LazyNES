@@ -1,6 +1,6 @@
 module CPU.Cycle
     (
-      execute
+      decode
     ) where
 
 import Prelude hiding (and)
@@ -8,204 +8,203 @@ import Prelude hiding (and)
 import Helpers
 import CPU.Types
 import CPU.Definition
-import CPU.MemoryAddressing
+import CPU.Addressing
 import CPU.Instructions
 
--- | Looks up the correct memory addressing and instruction for a specific 
+-- | Looks up the correct memory addressing and instruction for a specific
 -- opcode and executes it and returns the number of cpu cycles.
-execute :: OPCode -> CPU s Int
-execute op = case op of
-    -- Logical
-    0x29 -> immediate   >>= and >> return 2
-    0x25 -> zeropage    >>= and >> return 3
-    0x35 -> zeropageX   >>= and >> return 4
-    0x2D -> absolute    >>= and >> return 4
-    0x3D -> absoluteX   >>= and >> return 4 -- +1
-    0x39 -> absoluteY   >>= and >> return 4 -- +1
-    0x21 -> indirectX   >>= and >> return 6
-    0x31 -> indirectY   >>= and >> return 5 -- +1
+decode :: OPCode -> CPU s Int
+-- Logical
+decode 0x29 = immediate   >>= and
+decode 0x25 = zeropage    >>= and
+decode 0x35 = zeropageX   >>= and
+decode 0x2D = absolute    >>= and
+decode 0x3D = absoluteX   >>= and
+decode 0x39 = absoluteY   >>= and
+decode 0x21 = indirectX   >>= and
+decode 0x31 = indirectY   >>= and
 
-    0x09 -> immediate   >>= ora >> return 2
-    0x05 -> zeropage    >>= ora >> return 3
-    0x15 -> zeropageX   >>= ora >> return 4
-    0x0D -> absolute    >>= ora >> return 4
-    0x1D -> absoluteX   >>= ora >> return 4 -- +1
-    0x19 -> absoluteY   >>= ora >> return 4 -- +1
-    0x01 -> indirectX   >>= ora >> return 6
-    0x11 -> indirectY   >>= ora >> return 5 -- +1
+decode 0x09 = immediate   >>= ora
+decode 0x05 = zeropage    >>= ora
+decode 0x15 = zeropageX   >>= ora
+decode 0x0D = absolute    >>= ora
+decode 0x1D = absoluteX   >>= ora
+decode 0x19 = absoluteY   >>= ora
+decode 0x01 = indirectX   >>= ora
+decode 0x11 = indirectY   >>= ora
 
-    0x49 -> immediate   >>= eor >> return 2
-    0x45 -> zeropage    >>= eor >> return 3
-    0x55 -> zeropageX   >>= eor >> return 4
-    0x4D -> absolute    >>= eor >> return 4
-    0x5D -> absoluteX   >>= eor >> return 4 -- +1
-    0x59 -> absoluteY   >>= eor >> return 4 -- +1
-    0x41 -> indirectX   >>= eor >> return 6
-    0x51 -> indirectY   >>= eor >> return 5 -- +1
+decode 0x49 = immediate   >>= eor
+decode 0x45 = zeropage    >>= eor
+decode 0x55 = zeropageX   >>= eor
+decode 0x4D = absolute    >>= eor
+decode 0x5D = absoluteX   >>= eor
+decode 0x59 = absoluteY   >>= eor
+decode 0x41 = indirectX   >>= eor
+decode 0x51 = indirectY   >>= eor
 
-    0x24 -> zeropage    >>= bit >> return 3
-    0x2C -> absolute    >>= bit >> return 4
+decode 0x24 = zeropage    >>= bit
+decode 0x2C = absolute    >>= bit
 
-    -- Arithmetic.
-    0x69 -> immediate   >>= adc >> return 2
-    0x65 -> zeropage    >>= adc >> return 3
-    0x75 -> zeropageX   >>= adc >> return 4
-    0x6D -> absolute    >>= adc >> return 4
-    0x7D -> absoluteX   >>= adc >> return 4 -- +1
-    0x79 -> absoluteY   >>= adc >> return 4 -- +1
-    0x61 -> indirectX   >>= adc >> return 6
-    0x71 -> indirectY   >>= adc >> return 5 -- +1
+-- Arithmetic.
+decode 0x69 = immediate   >>= adc
+decode 0x65 = zeropage    >>= adc
+decode 0x75 = zeropageX   >>= adc
+decode 0x6D = absolute    >>= adc
+decode 0x7D = absoluteX   >>= adc
+decode 0x79 = absoluteY   >>= adc
+decode 0x61 = indirectX   >>= adc
+decode 0x71 = indirectY   >>= adc
 
-    0xE9 -> immediate   >>= sbc >> return 2
-    0xE5 -> zeropage    >>= sbc >> return 3
-    0xF5 -> zeropageX   >>= sbc >> return 4
-    0xED -> absolute    >>= sbc >> return 4
-    0xFD -> absoluteX   >>= sbc >> return 4 -- +1
-    0xF9 -> absoluteY   >>= sbc >> return 4 -- +1
-    0xE1 -> indirectX   >>= sbc >> return 6
-    0xF1 -> indirectY   >>= sbc >> return 5 -- +1
+decode 0xE9 = immediate   >>= sbc
+decode 0xE5 = zeropage    >>= sbc
+decode 0xF5 = zeropageX   >>= sbc
+decode 0xED = absolute    >>= sbc
+decode 0xFD = absoluteX   >>= sbc
+decode 0xF9 = absoluteY   >>= sbc
+decode 0xE1 = indirectX   >>= sbc
+decode 0xF1 = indirectY   >>= sbc
 
-    0xC9 -> immediate   >>= cmp >> return 2
-    0xC5 -> zeropage    >>= cmp >> return 3
-    0xD5 -> zeropageX   >>= cmp >> return 4
-    0xCD -> absolute    >>= cmp >> return 4
-    0xDD -> absoluteX   >>= cmp >> return 4 -- +1
-    0xD9 -> absoluteY   >>= cmp >> return 4 -- +1
-    0xC1 -> indirectX   >>= cmp >> return 6
-    0xD1 -> indirectY   >>= cmp >> return 5 -- +1
+decode 0xC9 = immediate   >>= cmp
+decode 0xC5 = zeropage    >>= cmp
+decode 0xD5 = zeropageX   >>= cmp
+decode 0xCD = absolute    >>= cmp
+decode 0xDD = absoluteX   >>= cmp
+decode 0xD9 = absoluteY   >>= cmp
+decode 0xC1 = indirectX   >>= cmp
+decode 0xD1 = indirectY   >>= cmp
 
-    0xE0 -> immediate   >>= cpx >> return 2
-    0xE4 -> zeropage    >>= cpx >> return 3
-    0xEC -> absolute    >>= cpx >> return 4
+decode 0xE0 = immediate   >>= cpx
+decode 0xE4 = zeropage    >>= cpx
+decode 0xEC = absolute    >>= cpx
 
-    0xC0 -> immediate   >>= cpy >> return 2
-    0xC4 -> zeropage    >>= cpy >> return 3
-    0xCC -> absolute    >>= cpy >> return 4
+decode 0xC0 = immediate   >>= cpy
+decode 0xC4 = zeropage    >>= cpy
+decode 0xCC = absolute    >>= cpy
 
-    -- Stack operations.
-    0xBA -> implicit    >>= tsx >> return 2
-    0x9A -> implicit    >>= txs >> return 2
-    0x48 -> implicit    >>= pha >> return 3
-    0x08 -> implicit    >>= php >> return 3
-    0x68 -> implicit    >>= pla >> return 4
-    0x28 -> implicit    >>= plp >> return 4
+-- Stack operations.
+decode 0xBA = implicit    >>= tsx
+decode 0x9A = implicit    >>= txs
+decode 0x48 = implicit    >>= pha
+decode 0x08 = implicit    >>= php
+decode 0x68 = implicit    >>= pla
+decode 0x28 = implicit    >>= plp
 
-    -- Register transfer.
-    0x8A -> implicit    >>= txa >> return 2
-    0x98 -> implicit    >>= tya >> return 2
-    0xAA -> implicit    >>= tax >> return 2
-    0xA8 -> implicit    >>= tay >> return 2
- 
-    -- Load and Store operations.
-    0xA9 -> immediate   >>= lda >> return 2
-    0xA5 -> zeropage    >>= lda >> return 3
-    0xB5 -> zeropageX   >>= lda >> return 4
-    0xAD -> absolute    >>= lda >> return 4
-    0xBD -> absoluteX   >>= lda >> return 4 -- +1
-    0xB9 -> absoluteX   >>= lda >> return 4 -- +1
-    0xA1 -> indirectX   >>= lda >> return 6
-    0xB1 -> indirectY   >>= lda >> return 5 -- +1
+-- Register transfer.
+decode 0x8A = implicit    >>= txa
+decode 0x98 = implicit    >>= tya
+decode 0xAA = implicit    >>= tax
+decode 0xA8 = implicit    >>= tay
 
-    0xA2 -> immediate   >>= ldx >> return 2
-    0xA6 -> zeropage    >>= ldx >> return 3
-    0xB6 -> zeropageX   >>= ldx >> return 4
-    0xAE -> absolute    >>= ldx >> return 4
-    0xBE -> absoluteY   >>= ldx >> return 4 -- +1
+-- Load and Store operations.
+decode 0xA9 = immediate   >>= lda
+decode 0xA5 = zeropage    >>= lda
+decode 0xB5 = zeropageX   >>= lda
+decode 0xAD = absolute    >>= lda
+decode 0xBD = absoluteX   >>= lda
+decode 0xB9 = absoluteY   >>= lda
+decode 0xA1 = indirectX   >>= lda
+decode 0xB1 = indirectY   >>= lda
 
-    0xA0 -> immediate   >>= ldy >> return 2
-    0xA4 -> zeropage    >>= ldy >> return 3
-    0xB4 -> zeropageX   >>= ldy >> return 4
-    0xAC -> absolute    >>= ldy >> return 4
-    0xBC -> absoluteX   >>= ldy >> return 4 -- +1
+decode 0xA2 = immediate   >>= ldx
+decode 0xA6 = zeropage    >>= ldx
+decode 0xB6 = zeropageX   >>= ldx
+decode 0xAE = absolute    >>= ldx
+decode 0xBE = absoluteY   >>= ldx
 
-    0x85 -> zeropage    >>= sta >> return 3
-    0x95 -> zeropageX   >>= sta >> return 4
-    0x8D -> absolute    >>= sta >> return 4
-    0x9D -> absoluteX   >>= sta >> return 5
-    0x99 -> absoluteY   >>= sta >> return 5
-    0x81 -> indirectX   >>= sta >> return 6
-    0x91 -> indirectY   >>= sta >> return 6
+decode 0xA0 = immediate   >>= ldy
+decode 0xA4 = zeropage    >>= ldy
+decode 0xB4 = zeropageX   >>= ldy
+decode 0xAC = absolute    >>= ldy
+decode 0xBC = absoluteX   >>= ldy
 
-    0x86 -> zeropage    >>= stx >> return 3
-    0x96 -> zeropageY   >>= stx >> return 4
-    0x8E -> absolute    >>= stx >> return 4
+decode 0x85 = zeropage    >>= sta
+decode 0x95 = zeropageX   >>= sta
+decode 0x8D = absolute    >>= sta
+decode 0x9D = absoluteX   >>= sta
+decode 0x99 = absoluteY   >>= sta
+decode 0x81 = indirectX   >>= sta
+decode 0x91 = indirectY   >>= sta
 
-    0x84 -> zeropage    >>= sty >> return 3
-    0x94 -> zeropageX   >>= sty >> return 4
-    0x8C -> absolute    >>= sty >> return 4
+decode 0x86 = zeropage    >>= stx
+decode 0x96 = zeropageY   >>= stx
+decode 0x8E = absolute    >>= stx
 
-    -- Increments and Decrements.
-    0xC6 -> zeropage    >>= dec >> return 5
-    0xD6 -> zeropageX   >>= dec >> return 6
-    0xCE -> absolute    >>= dec >> return 6
-    0xDE -> absoluteX   >>= dec >> return 7
-    0xCA -> implicit    >>= dex >> return 2
-    0x88 -> implicit    >>= dey >> return 2
+decode 0x84 = zeropage    >>= sty
+decode 0x94 = zeropageX   >>= sty
+decode 0x8C = absolute    >>= sty
 
-    0xE6 -> zeropage    >>= inc >> return 5
-    0xF6 -> zeropageX   >>= inc >> return 6
-    0xEE -> absolute    >>= inc >> return 6
-    0xFE -> absoluteX   >>= inc >> return 7
-    0xE8 -> implicit    >>= inx >> return 2
-    0xC8 -> implicit    >>= iny >> return 2
+-- Increments and Decrements.
+decode 0xC6 = zeropage    >>= dec
+decode 0xD6 = zeropageX   >>= dec
+decode 0xCE = absolute    >>= dec
+decode 0xDE = absoluteX   >>= dec
+decode 0xCA = implicit    >>= dex
+decode 0x88 = implicit    >>= dey
 
-    -- Shifts.
-    0x0A -> accumulator >>= asl >> return 2
-    0x06 -> zeropage    >>= asl >> return 5
-    0x16 -> zeropageX   >>= asl >> return 6
-    0x0E -> absolute    >>= asl >> return 6
-    0x1E -> absoluteX   >>= asl >> return 7
+decode 0xE6 = zeropage    >>= inc
+decode 0xF6 = zeropageX   >>= inc
+decode 0xEE = absolute    >>= inc
+decode 0xFE = absoluteX   >>= inc
+decode 0xE8 = implicit    >>= inx
+decode 0xC8 = implicit    >>= iny
 
-    0x4A -> accumulator >>= lsr >> return 2
-    0x46 -> zeropage    >>= lsr >> return 5
-    0x56 -> zeropageX   >>= lsr >> return 6
-    0x4E -> absolute    >>= lsr >> return 6
-    0x5E -> absoluteX   >>= lsr >> return 7
+-- Shifts.
+decode 0x0A = accumulator >>= asl
+decode 0x06 = zeropage    >>= asl
+decode 0x16 = zeropageX   >>= asl
+decode 0x0E = absolute    >>= asl
+decode 0x1E = absoluteX   >>= asl
 
-    0x6A -> accumulator >>= ror >> return 2
-    0x66 -> zeropage    >>= ror >> return 5
-    0x76 -> zeropageX   >>= ror >> return 6
-    0x6E -> absolute    >>= ror >> return 6
-    0x7E -> absoluteX   >>= ror >> return 7
+decode 0x4A = accumulator >>= lsr
+decode 0x46 = zeropage    >>= lsr
+decode 0x56 = zeropageX   >>= lsr
+decode 0x4E = absolute    >>= lsr
+decode 0x5E = absoluteX   >>= lsr
 
-    0x2A -> accumulator >>= rol >> return 2
-    0x26 -> zeropage    >>= rol >> return 5
-    0x36 -> zeropageX   >>= rol >> return 6
-    0x2E -> absolute    >>= rol >> return 6
-    0x3E -> absoluteX   >>= rol >> return 7
- 
-    -- Jumps and calls.
-    0x20 -> absolute    >>= jsr >> return 6
+decode 0x6A = accumulator >>= ror
+decode 0x66 = zeropage    >>= ror
+decode 0x76 = zeropageX   >>= ror
+decode 0x6E = absolute    >>= ror
+decode 0x7E = absoluteX   >>= ror
 
-    0x4C -> absolute    >>= jmp >> return 3
-    0x6C -> indirect    >>= jmp >> return 5
+decode 0x2A = accumulator >>= rol
+decode 0x26 = zeropage    >>= rol
+decode 0x36 = zeropageX   >>= rol
+decode 0x2E = absolute    >>= rol
+decode 0x3E = absoluteX   >>= rol
 
-    0x60 -> implicit    >>= rts >> return 6
+-- Jumps and calls.
+decode 0x20 = absolute    >>= jsr
 
-    -- Branches.
-    0xB0 -> relative    >>= bcs >>= \b -> ifB b 3 2 -- +1, +2
-    0x90 -> relative    >>= bcc >>= \b -> ifB b 3 2 -- +1, +2
+decode 0x4C = absolute    >>= jmp
+decode 0x6C = indirect    >>= jmp
 
-    0xF0 -> relative    >>= beq >>= \b -> ifB b 3 2 -- +1, +2
-    0xD0 -> relative    >>= bne >>= \b -> ifB b 3 2 -- +1, +2
+decode 0x60 = implicit    >>= rts
 
-    0x30 -> relative    >>= bmi >>= \b -> ifB b 3 2 -- +1, +2
-    0x10 -> relative    >>= bpl >>= \b -> ifB b 3 2 -- +1, +2
+-- Branches.
+decode 0xB0 = relative    >>= bcs
+decode 0x90 = relative    >>= bcc
 
-    0x50 -> relative    >>= bvc >>= \b -> ifB b 3 2 -- +1, +2
-    0x70 -> relative    >>= bvs >>= \b -> ifB b 3 2 -- +1, +2
+decode 0xF0 = relative    >>= beq
+decode 0xD0 = relative    >>= bne
 
-    -- Status flag changes.
-    0x38 -> implicit    >>= sec >> return 2
-    0xF8 -> implicit    >>= sed >> return 2
-    0x78 -> implicit    >>= sei >> return 2
+decode 0x30 = relative    >>= bmi
+decode 0x10 = relative    >>= bpl
 
-    0x18 -> implicit    >>= clc >> return 2
-    0xD8 -> implicit    >>= cld >> return 2
-    0x58 -> implicit    >>= cli >> return 2
-    0xB8 -> implicit    >>= clv >> return 2
+decode 0x50 = relative    >>= bvc
+decode 0x70 = relative    >>= bvs
 
-    -- System functions.
-    0x00 -> implicit    >>= brk >> return 7
-    0x40 -> implicit    >>= rti >> return 6
-    0xEA -> implicit    >>= nop >> return 2
+-- Status flag changes.
+decode 0x38 = implicit    >>= sec
+decode 0xF8 = implicit    >>= sed
+decode 0x78 = implicit    >>= sei
+
+decode 0x18 = implicit    >>= clc
+decode 0xD8 = implicit    >>= cld
+decode 0x58 = implicit    >>= cli
+decode 0xB8 = implicit    >>= clv
+
+-- System functions.
+decode 0x00 = implicit    >>= brk
+decode 0x40 = implicit    >>= rti
+decode 0xEA = implicit    >>= nop
