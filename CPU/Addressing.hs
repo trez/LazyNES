@@ -48,6 +48,13 @@ data Addressing = Addressing
   , storage   :: Storage
   }
 
+-- | Default values for Addressing (..)
+addressing :: Addressing
+addressing = Addressing { mode      = IMP
+                        , pageCross = False
+                        , storage   = Implicit }
+
+
 storeValue :: Addressing -> Operand -> CPU s ()
 storeValue Addressing{storage=Accumulator} = setA
 storeValue Addressing{storage=Memory addr} = writeMemory addr
@@ -124,12 +131,12 @@ absolute = do
 {-| Fetches absolute address and adds register x.
  -}
 absoluteX :: CPU s Addressing
-absoluteX = absoluteIndex (Addressing{mode=ABX}) getX
+absoluteX = absoluteIndex (addressing{mode=ABX}) getX
 
 {-| Fetches absolute address and adds register y.
  -}
 absoluteY :: CPU s Addressing
-absoluteY = absoluteIndex (Addressing{mode=ABY}) getY
+absoluteY = absoluteIndex (addressing{mode=ABY}) getY
 
 {-| Adds the value of the index register to fetched absolute address.
  -}
@@ -168,7 +175,7 @@ indirectY = do
   lsb  <- readMemory lsbAddr
   msb  <- readMemory (wrapPageBoundary lsbAddr)
   regY <- getY
-  return $ pageCrossing (Addressing{mode=INY}) lsb msb regY
+  return $ pageCrossing (addressing{mode=INY}) lsb msb regY
 
 {-| FIXME:
  -}
@@ -213,5 +220,3 @@ pageCrossing a lsb msb reg = a { pageCross = reg + lsb < lsb
 wrapPageBoundary :: Address -> Address
 wrapPageBoundary addr | (addr .&. 0x00FF) == 0xFF = addr - 0xFF
                       | otherwise                 = addr + 1
-
-

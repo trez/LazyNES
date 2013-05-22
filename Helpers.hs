@@ -8,10 +8,6 @@ module Helpers
     , (<+>)
     , whenM
     , unlessM
-    , ifA
-    , ifB
-    , ifC
-    , ifD
 
       -- * Addresses.
     , toAddr
@@ -53,17 +49,6 @@ unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM bm m = do
     b <- bm
     unless b m
-
--- |
-ifA :: Bool   -> a   -> a   -> a
-ifB :: Monad m => Bool   -> a   -> a   -> m a
-ifC :: Monad m => m Bool -> a   -> a   -> m a
-ifD :: Monad m => m Bool -> m a -> m a -> m a
-
-ifA b x y  = if b then x else y
-ifB b x y  = return $ ifA b x y
-ifC mb x y = mb >>= \b -> ifB b x y
-ifD mb x y = mb >>= \b -> ifA b x y
 
 -- | Transforms an operand into a Address.
 toAddr :: Operand -> Address
