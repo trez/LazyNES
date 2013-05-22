@@ -1,7 +1,9 @@
 module CPU.Instructions
     (
+      execute
+
     -- * Logical.
-      and
+    , and
     , ora
     , eor
     , bit
@@ -70,6 +72,204 @@ import CPU.Addressing
 checkExtraCycle :: Addressing -> Int -> Int
 checkExtraCycle Addressing{pageCross = True} c = c + 1
 checkExtraCycle _PageCrossFalse              c = c
+
+-- | Looks up the correct memory addressing and instruction for a specific
+-- opcode and executes it and returns the number of cpu cycles.
+execute :: OPCode -> CPU s Int
+-- Logical
+execute 0x29 = immediate   >>= and
+execute 0x25 = zeropage    >>= and
+execute 0x35 = zeropageX   >>= and
+execute 0x2D = absolute    >>= and
+execute 0x3D = absoluteX   >>= and
+execute 0x39 = absoluteY   >>= and
+execute 0x21 = indirectX   >>= and
+execute 0x31 = indirectY   >>= and
+
+execute 0x09 = immediate   >>= ora
+execute 0x05 = zeropage    >>= ora
+execute 0x15 = zeropageX   >>= ora
+execute 0x0D = absolute    >>= ora
+execute 0x1D = absoluteX   >>= ora
+execute 0x19 = absoluteY   >>= ora
+execute 0x01 = indirectX   >>= ora
+execute 0x11 = indirectY   >>= ora
+
+execute 0x49 = immediate   >>= eor
+execute 0x45 = zeropage    >>= eor
+execute 0x55 = zeropageX   >>= eor
+execute 0x4D = absolute    >>= eor
+execute 0x5D = absoluteX   >>= eor
+execute 0x59 = absoluteY   >>= eor
+execute 0x41 = indirectX   >>= eor
+execute 0x51 = indirectY   >>= eor
+
+execute 0x24 = zeropage    >>= bit
+execute 0x2C = absolute    >>= bit
+
+-- Arithmetic.
+execute 0x69 = immediate   >>= adc
+execute 0x65 = zeropage    >>= adc
+execute 0x75 = zeropageX   >>= adc
+execute 0x6D = absolute    >>= adc
+execute 0x7D = absoluteX   >>= adc
+execute 0x79 = absoluteY   >>= adc
+execute 0x61 = indirectX   >>= adc
+execute 0x71 = indirectY   >>= adc
+
+execute 0xE9 = immediate   >>= sbc
+execute 0xE5 = zeropage    >>= sbc
+execute 0xF5 = zeropageX   >>= sbc
+execute 0xED = absolute    >>= sbc
+execute 0xFD = absoluteX   >>= sbc
+execute 0xF9 = absoluteY   >>= sbc
+execute 0xE1 = indirectX   >>= sbc
+execute 0xF1 = indirectY   >>= sbc
+
+execute 0xC9 = immediate   >>= cmp
+execute 0xC5 = zeropage    >>= cmp
+execute 0xD5 = zeropageX   >>= cmp
+execute 0xCD = absolute    >>= cmp
+execute 0xDD = absoluteX   >>= cmp
+execute 0xD9 = absoluteY   >>= cmp
+execute 0xC1 = indirectX   >>= cmp
+execute 0xD1 = indirectY   >>= cmp
+
+execute 0xE0 = immediate   >>= cpx
+execute 0xE4 = zeropage    >>= cpx
+execute 0xEC = absolute    >>= cpx
+
+execute 0xC0 = immediate   >>= cpy
+execute 0xC4 = zeropage    >>= cpy
+execute 0xCC = absolute    >>= cpy
+
+-- Stack operations.
+execute 0xBA = implicit    >>= tsx
+execute 0x9A = implicit    >>= txs
+execute 0x48 = implicit    >>= pha
+execute 0x08 = implicit    >>= php
+execute 0x68 = implicit    >>= pla
+execute 0x28 = implicit    >>= plp
+
+-- Register transfer.
+execute 0x8A = implicit    >>= txa
+execute 0x98 = implicit    >>= tya
+execute 0xAA = implicit    >>= tax
+execute 0xA8 = implicit    >>= tay
+
+-- Load and Store operations.
+execute 0xA9 = immediate   >>= lda
+execute 0xA5 = zeropage    >>= lda
+execute 0xB5 = zeropageX   >>= lda
+execute 0xAD = absolute    >>= lda
+execute 0xBD = absoluteX   >>= lda
+execute 0xB9 = absoluteY   >>= lda
+execute 0xA1 = indirectX   >>= lda
+execute 0xB1 = indirectY   >>= lda
+
+execute 0xA2 = immediate   >>= ldx
+execute 0xA6 = zeropage    >>= ldx
+execute 0xB6 = zeropageX   >>= ldx
+execute 0xAE = absolute    >>= ldx
+execute 0xBE = absoluteY   >>= ldx
+
+execute 0xA0 = immediate   >>= ldy
+execute 0xA4 = zeropage    >>= ldy
+execute 0xB4 = zeropageX   >>= ldy
+execute 0xAC = absolute    >>= ldy
+execute 0xBC = absoluteX   >>= ldy
+
+execute 0x85 = zeropage    >>= sta
+execute 0x95 = zeropageX   >>= sta
+execute 0x8D = absolute    >>= sta
+execute 0x9D = absoluteX   >>= sta
+execute 0x99 = absoluteY   >>= sta
+execute 0x81 = indirectX   >>= sta
+execute 0x91 = indirectY   >>= sta
+
+execute 0x86 = zeropage    >>= stx
+execute 0x96 = zeropageY   >>= stx
+execute 0x8E = absolute    >>= stx
+
+execute 0x84 = zeropage    >>= sty
+execute 0x94 = zeropageX   >>= sty
+execute 0x8C = absolute    >>= sty
+
+-- Increments and Decrements.
+execute 0xC6 = zeropage    >>= dec
+execute 0xD6 = zeropageX   >>= dec
+execute 0xCE = absolute    >>= dec
+execute 0xDE = absoluteX   >>= dec
+execute 0xCA = implicit    >>= dex
+execute 0x88 = implicit    >>= dey
+
+execute 0xE6 = zeropage    >>= inc
+execute 0xF6 = zeropageX   >>= inc
+execute 0xEE = absolute    >>= inc
+execute 0xFE = absoluteX   >>= inc
+execute 0xE8 = implicit    >>= inx
+execute 0xC8 = implicit    >>= iny
+
+-- Shifts.
+execute 0x0A = accumulator >>= asl
+execute 0x06 = zeropage    >>= asl
+execute 0x16 = zeropageX   >>= asl
+execute 0x0E = absolute    >>= asl
+execute 0x1E = absoluteX   >>= asl
+
+execute 0x4A = accumulator >>= lsr
+execute 0x46 = zeropage    >>= lsr
+execute 0x56 = zeropageX   >>= lsr
+execute 0x4E = absolute    >>= lsr
+execute 0x5E = absoluteX   >>= lsr
+
+execute 0x6A = accumulator >>= ror
+execute 0x66 = zeropage    >>= ror
+execute 0x76 = zeropageX   >>= ror
+execute 0x6E = absolute    >>= ror
+execute 0x7E = absoluteX   >>= ror
+
+execute 0x2A = accumulator >>= rol
+execute 0x26 = zeropage    >>= rol
+execute 0x36 = zeropageX   >>= rol
+execute 0x2E = absolute    >>= rol
+execute 0x3E = absoluteX   >>= rol
+
+-- Jumps and calls.
+execute 0x20 = absolute    >>= jsr
+
+execute 0x4C = absolute    >>= jmp
+execute 0x6C = indirect    >>= jmp
+
+execute 0x60 = implicit    >>= rts
+
+-- Branches.
+execute 0xB0 = relative    >>= bcs
+execute 0x90 = relative    >>= bcc
+
+execute 0xF0 = relative    >>= beq
+execute 0xD0 = relative    >>= bne
+
+execute 0x30 = relative    >>= bmi
+execute 0x10 = relative    >>= bpl
+
+execute 0x50 = relative    >>= bvc
+execute 0x70 = relative    >>= bvs
+
+-- Status flag changes.
+execute 0x38 = implicit    >>= sec
+execute 0xF8 = implicit    >>= sed
+execute 0x78 = implicit    >>= sei
+
+execute 0x18 = implicit    >>= clc
+execute 0xD8 = implicit    >>= cld
+execute 0x58 = implicit    >>= cli
+execute 0xB8 = implicit    >>= clv
+
+-- System functions.
+execute 0x00 = implicit    >>= brk
+execute 0x40 = implicit    >>= rti
+execute 0xEA = implicit    >>= nop
 
 {-----------------------------------------------------------------------------
   * Logical

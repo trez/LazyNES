@@ -12,17 +12,22 @@ import CPU.Types
 import CPU.Definition
 import CPU.Addressing
 import CPU.Instructions
-import CPU.Cycle
 
 -- | Main function
 main :: IO ()
 main = do
     putStrLn "Running LazyNES Test(s)"
+    putStr "Testing ADC ... "
     let i = runST $ do
         env <- initCPU
         runCPU m env
-    putStr "Testing ADC ... "
     putStrLn (show i)
+
+    putStr "Testing Branch instructions ... "
+    let j = runST $ do
+        env <- initCPU
+        runCPU n env
+    putStrLn (show j)
   where
     m = do
       implicit >>= inx
@@ -32,6 +37,8 @@ main = do
       adc $ makeAbsoluteAddress 0x2000
       getA
       testADC
+    n = do
+      testBranch
 
 makeAbsoluteAddress addr = Addressing { mode      = ABS
                                       , pageCross = False
@@ -77,3 +84,39 @@ testCasesADC =
     ,((127, 1,    False), (128, False, True))  -- 127 + 1  + 0 = 128 (overflow)
     ,((1,   0xFF, False), (0,   True,  False)) -- 1   + (-1) + 0 = 0 (carry)
     ]
+
+testBranch = do
+  setPC 0x80F0
+  pc <- getPC
+  writeMemory pc     0xB0 -- BCS
+  writeMemory (pc+1) 0x06 -- +6
+
+  -- Execute instruction
+  setFlagC False
+  cycles1 <- fetchExecuteTest
+  pc1 <- getPC
+
+  -- Execute instruction again.
+  setPC pc
+  setFlagC True
+  cycles2 <- fetchExecuteTest
+  pc2 <- getPC
+
+  -- Execute instruction again.
+  setPC pc
+  setFlagC True
+  writeMemory (pc+1) 125  -- +125
+  cycles3 <- fetchExecuteTest
+  pc3 <- getPC
+
+
+  trace
+    (  "BCS-False | PC:" ++ show pc ++ "\tPC':" ++ show pc1 ++ "\tCycles:" ++ show cycles1 ++ "\n"
+    ++ "BCS-True  | PC:" ++ show pc ++ "\tPC':" ++ show pc2 ++ "\tCycles:" ++ show cycles2 ++ "\n"
+    ++ "BCS-True  | PC:" ++ show pc ++ "\tPC':" ++ show pc3 ++ "\tCycles:" ++ show cycles3 ++ "\n"
+    )
+    return $ (pc+2   == pc1) && (cycles1 == 2)
+          && (pc+7   == pc2) && (cycles2 == 3)
+          && (pc+126 == pc3) && (cycles3 == 4)
+
+fetchExecuteTest = fetch >>= execute
