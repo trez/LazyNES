@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, BangPatterns #-}
 
 -- | The CPU definitions.
 module CPU.Definition
@@ -64,7 +64,9 @@ instance MonadReader (CPUEnv s) (CPU s) where
     local f m = CPU $ runCPU m . f
 
 instance Functor (CPU s) where
-    fmap f m = m >>= return . f
+    fmap f m = do
+       !res <- m
+       return (f res)
 
 instance Applicative (CPU s) where
     pure = return
@@ -163,7 +165,7 @@ alterPC = alterVar pc
 
 -- | Push the program counter onto the stack.
 pushPC :: CPU s ()
-pushPC = do 
+pushPC = do
     res <- getPC
     push $ fromIntegral $ res `shiftR` 8 -- high 8 bits
     push $ fromIntegral $ res            -- low 8 bits

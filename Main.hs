@@ -1,9 +1,11 @@
+{-# LANGUAGE MultiParamTypeClasses,BangPatterns #-}
 module Main
     (
       -- * Main
       main
     ) where
 
+import System.Environment (getArgs)
 import Control.Monad
 import Debug.Trace
 
@@ -17,37 +19,36 @@ import CPU.Instructions
 main :: IO ()
 main = do
     putStrLn "Running LazyNES Test(s)"
+    args <- getArgs
+    let maxCycles = case args of
+                      []    -> 1000000
+                      (x:_) -> read x
+
     putStr "Testing ADC ... "
-    let i = runST $ do
-        env <- initCPU
-        runCPU m env
-    putStrLn (show i)
+    putStrLn . show $ runST $ initCPU >>= runCPU adcTest
+
+    putStr "Testing SBC ... "
+    putStrLn . show $ runST $ initCPU >>= runCPU sbcTest
 
     putStr "Testing Branch instructions ... "
-    let j = runST $ do
-        env <- initCPU
-        runCPU n env
-    putStrLn (show j)
-  where
-    m = do
-      implicit >>= inx
-      implicit >>= inx
-      setFlagC True
-      writeMemory 0x2000 1
-      adc $ makeAbsoluteAddress 0x2000
-      getA
-      testADC
-    n = do
-      testBranch
+    putStrLn . show $ runST $ initCPU >>= runCPU branchTest
 
+    putStr "Running benchmark tests ... "
+    putStrLn . show $ runST $ initCPU >>= runCPU (benchTest maxCycles)
+
+--
 makeAbsoluteAddress addr = Addressing { mode      = ABS
                                       , pageCross = False
                                       , storage   = Memory addr }
-
+--
 makeConstantValue val = Addressing { mode      = IMM
                                    , pageCross = False
                                    , storage   = Value val }
 
+--
+fetchExecuteTest = fetch >>= execute
+
+--
 initCPU :: ST s (CPUEnv s)
 initCPU = do
     return CPUEnv
@@ -61,7 +62,8 @@ initCPU = do
         `ap` newArray (0x2000, 0x2007) 0x0   -- PPU registers
         `ap` newArray (0x4000, 0xFFFF) 0x0   -- Upper memory
 
-testADC = do
+-- ---------------------------------------------------------------------------
+adcTest = do
     Prelude.and <$> mapM test testCasesADC
   where
     test ((a, v, c), (v', cF, oF)) = do
@@ -74,7 +76,7 @@ testADC = do
       return (b1 && b2 && b3)
 
 testCasesADC =
- --    X  + Y     (+1)  =  Res  'C'    'V'
+ --    A  + M     (+1)  =  Res  'C'    'V'
     [((88,  70,   True),  (159, False, True))  -- 88  + 70 + 1 = 159
     ,((58,  46,   True),  (105, False, False)) -- 58  + 46 + 1 = 105
     ,((1,   1,    True),  (3,   False, False)) -- 1   + 1  + 1 = 3
@@ -85,38 +87,97 @@ testCasesADC =
     ,((1,   0xFF, False), (0,   True,  False)) -- 1   + (-1) + 0 = 0 (carry)
     ]
 
-testBranch = do
-  setPC 0x80F0
-  pc <- getPC
-  writeMemory pc     0xB0 -- BCS
-  writeMemory (pc+1) 0x06 -- +6
+-- ---------------------------------------------------------------------------
+sbcTest = do
+    -- A = A - M - 1 + C
+    Prelude.and <$> mapM test testCasesSBC
+  where
+    test ((a, v, c), (v', nF, cF, oF)) = do
+      setFlagC c
+      setA a
+      sbc $ makeConstantValue v
+      b1 <- (v' ==) <$> getA
+      b2 <- (nF ==) <$> getFlagN
+      b3 <- (cF ==) <$> getFlagC
+      b4 <- (oF ==) <$> getFlagV
+      return (b1 && b2 && b3 && b4)
 
-  -- Execute instruction
-  setFlagC False
-  cycles1 <- fetchExecuteTest
-  pc1 <- getPC
+testCasesSBC =
+ --    A - M - 1 (+'C')  =  Res 'N'    'C'    'V'
+    [((0,  0,    False),   (-1, True,  False, False))  --  0 -  0 - 1 + 0 = -1
+    ,((0,  0,    True),    (0,  False, True,  False))  --  0 -  0 - 1 + 1 =  0
+    -- ,((0,  1,    False),   (0,  False, False, False))  --  0 - -1 - 1 + 0 =  0
+    -- ,((0,  1,    True),    (1,  True,  False, True))   --  0 - -1 - 1 + 1 =  1
+    -- ,((1,  0,    False),   (-2, False, True,  True))   -- -1 -  0 - 1 + 0 = -2
+    -- ,((1,  0,    True),    (-1, True,  True,  False))  -- -1 -  0 - 1 + 1 = -1
+    ,((1,  1,    False),   (-1, True,  False, False))  -- -1 -  0 - 1 + 0 = -1
+    ,((1,  1,    True),    (0,  False, True,  False))  -- -1 -  0 - 1 + 1 =  0
+    ]
 
-  -- Execute instruction again.
-  setPC pc
-  setFlagC True
-  cycles2 <- fetchExecuteTest
-  pc2 <- getPC
+-- ---------------------------------------------------------------------------
+branchTest = do
+    setPC 0x80F0
+    pc <- getPC
+    writeMemory pc     0xB0 -- BCS
+    writeMemory (pc+1) 0x06 -- +6
 
-  -- Execute instruction again.
-  setPC pc
-  setFlagC True
-  writeMemory (pc+1) 125  -- +125
-  cycles3 <- fetchExecuteTest
-  pc3 <- getPC
+    -- Execute instruction
+    setFlagC False
+    cycles1 <- fetchExecuteTest
+    pc1 <- getPC
 
+    -- Execute instruction again.
+    setPC pc
+    setFlagC True
+    cycles2 <- fetchExecuteTest
+    pc2 <- getPC
 
-  trace
-    (  "BCS-False | PC:" ++ show pc ++ "\tPC':" ++ show pc1 ++ "\tCycles:" ++ show cycles1 ++ "\n"
-    ++ "BCS-True  | PC:" ++ show pc ++ "\tPC':" ++ show pc2 ++ "\tCycles:" ++ show cycles2 ++ "\n"
-    ++ "BCS-True  | PC:" ++ show pc ++ "\tPC':" ++ show pc3 ++ "\tCycles:" ++ show cycles3 ++ "\n"
-    )
+    -- Execute instruction again.
+    setPC pc
+    setFlagC True
+    writeMemory (pc+1) 125  -- +125
+    cycles3 <- fetchExecuteTest
+    pc3 <- getPC
+
+--  trace
+--    (  "BCS-False | PC:" ++ show pc ++ "\tPC':" ++ show pc1 ++ "\tCycles:" ++ show cycles1 ++ "\n"
+--    ++ "BCS-True  | PC:" ++ show pc ++ "\tPC':" ++ show pc2 ++ "\tCycles:" ++ show cycles2 ++ "\n"
+--    ++ "BCS-True  | PC:" ++ show pc ++ "\tPC':" ++ show pc3 ++ "\tCycles:" ++ show cycles3 ++ "\n"
+--    )
     return $ (pc+2   == pc1) && (cycles1 == 2)
           && (pc+7   == pc2) && (cycles2 == 3)
           && (pc+126 == pc3) && (cycles3 == 4)
 
-fetchExecuteTest = fetch >>= execute
+-- ---------------------------------------------------------------------------
+benchTest :: Integer -> CPU s Bool
+benchTest maxCycles = do
+    setPC 0x8000
+    setA 10
+    setFlagC False
+    writeMemory 0x9000 10
+    writeMemory 0x8000 0x6D -- ADC ABS
+    writeMemory 0x8001 0x00 -- Mem Addr LSB: 00 \
+    writeMemory 0x8002 0x90 -- Mem Addr MSB: 90 / 0x9000
+    writeMemory 0x8003 0xED -- SBC ABS
+    writeMemory 0x8004 0x00 -- Mem Addr LSB: 00 \
+    writeMemory 0x8005 0x90 -- Mem Addr MSB: 90 / 0x9000
+    writeMemory 0x8006 0x4C -- JMP ABS
+    writeMemory 0x8007 0x00 -- Mem Addr LSB: 00 \
+    writeMemory 0x8008 0x80 -- Mem Addr MSB: 80 / 0x8000
+
+    instructions <- loopTest 0 maxCycles
+    a <- getA
+    c <- getFlagC
+    v <- getFlagV
+    trace
+      (  "A:"             ++ show a
+      ++ " C:"            ++ show c
+      ++ " V:"            ++ show v
+      ++ " Instructions:" ++ show instructions
+      ++ " Cycles:"       ++ show maxCycles ++ "\n" )
+      return $ (a == 20)
+
+loopTest :: Integer -> Integer -> CPU s Integer
+loopTest (!i) (!n) | n > 0 = do m <- fromIntegral <$> fetchExecuteTest
+                                loopTest (i+1) (n-m)
+                   | otherwise = return i

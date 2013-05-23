@@ -15,9 +15,9 @@ import Data.Bits as B hiding (bit)
 --import Control.Monad.ST.Lazy as ST
 --import Data.STRef.Lazy as STR
 
-import Control.Monad.ST as ST
-import Data.STRef       as STRef
-import Data.Array.ST    as STArr
+import Control.Monad.ST.Strict as ST
+import Data.STRef.Strict       as STRef
+import Data.Array.ST           as STArr
 
 type Operand    = Word8
 type OPCode     = Word8

@@ -1,3 +1,16 @@
 LazyNES - A Lazy NES emulator written in haskell.
 ============================================================
 Trying to do stuff from school
+
+
+Benchmarking
+============================================================
+   Heap profiling:
+1) Compile with options.
+ > ghc -rtsopts --make Main.hs -prof -auto-all -caf-all -fforce-recomp
+
+2) Run with special flags.
+ > time ./Main +RTS -p -hc -K100M
+
+3) Convert to readable result.
+ > hp2ps Main.hp
