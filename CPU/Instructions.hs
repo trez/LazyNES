@@ -62,6 +62,8 @@ module CPU.Instructions
 
 import Prelude hiding (and)
 
+import qualified Data.Bits as Bits
+import Control.Monad
 import Debug.Trace
 
 import Helpers (unlessM, whenM, signed16, unsigned8, boolBit, bitBool, (<#>))
@@ -278,9 +280,7 @@ execute 0xEA = implicit    >>= nop
 -- A,Z,N = A&M
 and :: Addressing -> CPU s Int
 and p = do
-  val   <- fetchValue p
-  valA' <- alterA (.&. val)
-  setZN valA'
+  fetchValue p >>= alterA . (.&.) >>= setZN
   return . cycles . mode $ p
   where cycles IMM = 2
         cycles ZPG = 3
@@ -350,18 +350,12 @@ dec a = do
 -- | Decrement X Reg
 -- X,Z,N = X-1
 dex :: Addressing -> CPU s Int
-dex a@Addressing{storage=Implicit} = do
-  alterX (subtract 1) >>= setZN
-  return . cycles . mode $ a
-  where cycles IMM = 2
+dex Addressing{storage=Implicit} = alterX (subtract 1) >>= setZN >> return 2
 
 -- | Decrement Y Reg
 -- Y,Z,N = Y-1
 dey :: Addressing -> CPU s Int
-dey a@Addressing{storage=Implicit} = do
-  alterY (subtract 1) >>= setZN
-  return . cycles . mode $ a
-  where cycles IMM = 2
+dey Addressing{storage=Implicit} = alterY (subtract 1) >>= setZN >> return 2
 
 -- | Increment Mem
 -- M,Z,N = M+1
@@ -378,16 +372,12 @@ inc a = do
 -- | Increment X Reg
 -- X,Z,N = X+1
 inx :: Addressing -> CPU s Int
-inx Addressing{storage=Implicit} = do
-  alterX (+1) >>= setZN
-  return 2
+inx Addressing{storage=Implicit} = alterX (+1) >>= setZN >> return 2
 
 -- | Increment Y Reg
 -- Y,Z,N = Y+1
 iny :: Addressing -> CPU s Int
-iny Addressing{storage=Implicit} = do
-  alterY (+1) >>= setZN
-  return 2
+iny Addressing{storage=Implicit} = alterY (+1) >>= setZN >> return 2
 
 {-----------------------------------------------------------------------------
   * Arithmetic.
@@ -402,8 +392,15 @@ adc p = do
   let temp = a + v + c
   a' <- alterA . const . unsigned8 $ temp
   setZN    $ a'
-  setFlagV $ ((complement $ a `xor` v) .&. (a `xor` temp)) `testBit` 7
-  setFlagC $ temp `testBit` 8
+  let v' = case ((complement $ a `xor` v) .&. (a `xor` temp)) `testBit` 7 of
+             True  -> (`setBit` 6)
+             False -> (`clearBit` 6)
+
+  let c' = case temp `testBit` 8 of
+             True  -> (`setBit` 0)
+             False -> (`clearBit` 0)
+
+  alterStatus (v' . c')
   return . cycles . mode $ p
   where cycles IMM = 2
         cycles ZPG = 3
