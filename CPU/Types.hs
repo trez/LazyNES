@@ -19,9 +19,10 @@ import Control.Monad.ST.Strict as ST
 import Data.STRef.Strict       as STRef
 import Data.Array.ST           as STArr
 
-type Operand    = Word8
-type OPCode     = Word8
-type Address    = Word16
-type Pixel      = Word32 -- ^ RGB Value in hex.
+type Operand    = W.Word8
+type OPCode     = W.Word8
+type Address    = W.Word16
+type Pixel      = W.Word32 -- ^ RGB Value in hex.
+type Status     = W.Word8
 
 type Memory s = STUArray s Address Operand

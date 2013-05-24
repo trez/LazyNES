@@ -280,7 +280,7 @@ execute 0xEA = implicit    >>= nop
 -- A,Z,N = A&M
 and :: Addressing -> CPU s Int
 and p = do
-  fetchValue p >>= alterA . (.&.) >>= setZN
+  fetchValue p >>= alterA . (.&.) >>= alterStatus . setZN
   return . cycles . mode $ p
   where cycles IMM = 2
         cycles ZPG = 3
@@ -294,7 +294,7 @@ and p = do
 -- | Logical Inclusive OR
 -- A,Z,N = A|M
 ora ::  Addressing -> CPU s Int
-ora p = do fetchValue p >>= alterA . (.|.) >>= setZN
+ora p = do fetchValue p >>= alterA . (.|.) >>= alterStatus . setZN
            return . cycles . mode $ p
   where cycles IMM = 2
         cycles ZPG = 3
@@ -308,7 +308,7 @@ ora p = do fetchValue p >>= alterA . (.|.) >>= setZN
 -- | Exclusive OR
 -- A,Z,N = A^M
 eor ::  Addressing -> CPU s Int
-eor p = do fetchValue p >>= alterA . xor >>= setZN
+eor p = do fetchValue p >>= alterA . xor >>= alterStatus . setZN
            return . cycles . mode $ p
   where cycles IMM = 2
         cycles ZPG = 3
@@ -325,9 +325,9 @@ bit :: Addressing -> CPU s Int
 bit p = do
   val <- fetchValue p
   acc <- getA
-  setFlagV $ testBit val 6
-  setFlagN $ testBit val 7
-  setFlagZ $ (acc .&. val) == 0
+  alterStatus $ setFlagV (testBit val 6)
+              . setFlagN (testBit val 7)
+              . setFlagZ ((acc .&. val) == 0)
   return . cycles . mode $ p
   where cycles ZPG = 3
         cycles ABS = 4
@@ -340,7 +340,7 @@ bit p = do
 dec :: Addressing -> CPU s Int
 dec a = do
   addr <- fetchAddress a
-  alterMemory addr (subtract 1) >>= setZN
+  alterMemory addr (subtract 1) >>= alterStatus . setZN
   return . cycles . mode $ a
   where cycles ZPG = 5
         cycles ZPX = 6
@@ -350,19 +350,21 @@ dec a = do
 -- | Decrement X Reg
 -- X,Z,N = X-1
 dex :: Addressing -> CPU s Int
-dex Addressing{storage=Implicit} = alterX (subtract 1) >>= setZN >> return 2
+dex Addressing{storage=Implicit} = do alterX (subtract 1) >>= alterStatus . setZN
+                                      return 2
 
 -- | Decrement Y Reg
 -- Y,Z,N = Y-1
 dey :: Addressing -> CPU s Int
-dey Addressing{storage=Implicit} = alterY (subtract 1) >>= setZN >> return 2
+dey Addressing{storage=Implicit} = do alterY (subtract 1) >>= alterStatus . setZN
+                                      return 2
 
 -- | Increment Mem
 -- M,Z,N = M+1
 inc :: Addressing -> CPU s Int
 inc a = do
   addr <- fetchAddress a
-  alterMemory addr (+1) >>= setZN
+  alterMemory addr (+1) >>= alterStatus . setZN
   return . cycles . mode $ a
   where cycles ZPG = 5
         cycles ZPX = 6
@@ -372,12 +374,14 @@ inc a = do
 -- | Increment X Reg
 -- X,Z,N = X+1
 inx :: Addressing -> CPU s Int
-inx Addressing{storage=Implicit} = alterX (+1) >>= setZN >> return 2
+inx Addressing{storage=Implicit} = do alterX (+1) >>= alterStatus . setZN
+                                      return 2
 
 -- | Increment Y Reg
 -- Y,Z,N = Y+1
 iny :: Addressing -> CPU s Int
-iny Addressing{storage=Implicit} = alterY (+1) >>= setZN >> return 2
+iny Addressing{storage=Implicit} = do alterY (+1) >>= alterStatus . setZN
+                                      return 2
 
 {-----------------------------------------------------------------------------
   * Arithmetic.
@@ -388,19 +392,13 @@ adc :: Addressing -> CPU s Int
 adc p = do
   v <- signed16 <$> fetchValue p
   a <- signed16 <$> getA
-  c <- boolBit  <$> getFlagC
+  c <- boolBit  <$> getFlagC  -- Representing 0 / 1
   let temp = a + v + c
-  a' <- alterA . const . unsigned8 $ temp
-  setZN    $ a'
-  let v' = case ((complement $ a `xor` v) .&. (a `xor` temp)) `testBit` 7 of
-             True  -> (`setBit` 6)
-             False -> (`clearBit` 6)
-
-  let c' = case temp `testBit` 8 of
-             True  -> (`setBit` 0)
-             False -> (`clearBit` 0)
-
-  alterStatus (v' . c')
+  a' <- alterA . const . fromIntegral $ temp
+  alterStatus $ setZN    a'
+              . setFlagC (temp `testBit` 8)
+              . setFlagV (((complement $ a `xor` v) .&.  (a `xor` temp))
+                          `testBit` 7)
   return . cycles . mode $ p
   where cycles IMM = 2
         cycles ZPG = 3
@@ -414,10 +412,12 @@ adc p = do
 -- | Subtraction with carry
 -- A,Z,C,N = A-M-(1-C)
 sbc :: Addressing -> CPU s Int
-sbc s = do
-  v <- fetchValue s
-  adc s{storage=Value $ v `xor` 0xFF}
+sbc p = do
+    v <- fetchValue p
+    adc p{storage=Value $ v `xor` 0xFF}
 
+-- | Compare
+-- Z,C,N = A-M
 cmp :: Addressing -> CPU s Int
 cmp s = do compares (fetchValue s) getA
            return . cycles . mode $ s
@@ -430,6 +430,8 @@ cmp s = do compares (fetchValue s) getA
         cycles INX = 6
         cycles INY = checkExtraCycle s 5
 
+-- | Compare X Reg
+-- Z,C,N = X-M
 cpx :: Addressing -> CPU s Int
 cpx s = do compares (fetchValue s) getX
            return . cycles . mode $ s
@@ -437,6 +439,8 @@ cpx s = do compares (fetchValue s) getX
         cycles ZPG = 3
         cycles ABS = 4
 
+-- | Compare Y Reg
+-- Z,C,N = Y-M
 cpy :: Addressing -> CPU s Int
 cpy s = do compares (fetchValue s) getY
            return . cycles . mode $ s
@@ -449,9 +453,9 @@ compares :: CPU s Operand -> CPU s Operand -> CPU s ()
 compares mem reg = do
     a <- mem
     b <- reg
-    setFlagC $ b >= a
-    setFlagZ $ a == b
-    setFlagN $ (b - a) < 0
+    alterStatus $ setFlagC (b >= a)
+                . setFlagZ (a == b)
+                . setFlagN ((b - a) < 0)
 
 {-----------------------------------------------------------------------------
   * Shifts.
@@ -462,8 +466,8 @@ asl :: Addressing -> CPU s Int
 asl s = do
     v  <- fetchValue s
     v' <- alterValue s $ (`clearBit` 0) . (`shiftL` 1)
-    setZN    $ v'
-    setFlagC $ v `testBit` 7
+    alterStatus $ setZN  v'
+                . setFlagC (v `testBit` 7)
     return . cycles . mode $ s
   where cycles ACC = 2
         cycles ZPG = 5
@@ -477,8 +481,8 @@ lsr :: Addressing -> CPU s Int
 lsr s = do
     v  <- fetchValue s
     v' <- alterValue s $ (`clearBit` 7) . (`shiftR` 1)
-    setZN    $ v'
-    setFlagC $ v `testBit` 0
+    alterStatus $ setZN v'
+                . setFlagC (v `testBit` 0)
     return . cycles . mode $ s
   where cycles ACC = 2
         cycles ZPG = 5
@@ -493,8 +497,8 @@ rol s =  do
     v  <- fetchValue s
     c  <- getFlagC
     v' <- alterValue s $ (bitBool 0 c) . (`shiftL` 1)
-    setZN    $ v'
-    setFlagC $ v `testBit` 7
+    alterStatus $ setZN v'
+                . setFlagC (v `testBit` 7)
     return . cycles . mode $ s
   where cycles ACC = 2
         cycles ZPG = 5
@@ -509,8 +513,8 @@ ror s =  do
     v  <- fetchValue s
     c  <- getFlagC
     v' <- alterValue s $ (bitBool 7 c) . (`shiftR` 1)
-    setZN    $ v'
-    setFlagC $ v `testBit` 0
+    alterStatus $ setZN v'
+                . setFlagC (v `testBit` 0)
     return . cycles . mode $ s
   where cycles ACC = 2
         cycles ZPG = 5
@@ -566,14 +570,14 @@ branchOn flagM a = do
   * System functions.
 -----------------------------------------------------------------------------}
 -- | Set the break flag, force interrupt
--- B = 1
+-- B = 1, I = 1
 brk :: Addressing -> CPU s Int
 brk Addressing{storage=Implicit} = do
-    alterPC succ
+    alterPC (+1)
     pushPC
-    setFlagB True
+    alterStatus $ setFlagB True
     getStatus >>= push
-    setFlagI True
+    alterStatus $ setFlagI True
     readMemory 0xFFFE <#> readMemory 0xFFFF >>= setPC
     return 7
 
@@ -595,37 +599,37 @@ rti Addressing{storage=Implicit} = do
 -- | Clear carry flag
 -- C = 0
 clc :: Addressing -> CPU s Int
-clc Addressing{storage=Implicit} = setFlagC False >> return 2
+clc Addressing{storage=Implicit} = alterStatus (setFlagC False) >> return 2
 
 -- | Clear decimal mode flag
 -- D = 0
 cld :: Addressing -> CPU s Int
-cld Addressing{storage=Implicit} = setFlagD False >> return 2
+cld Addressing{storage=Implicit} = alterStatus (setFlagD False) >> return 2
 
 -- | Clear interrupt disable flag
 -- I = 0
 cli :: Addressing -> CPU s Int
-cli Addressing{storage=Implicit} = setFlagI False >> return 2
+cli Addressing{storage=Implicit} = alterStatus (setFlagI False) >> return 2
 
 -- | Clear overflow flag
 -- V = 0
 clv :: Addressing -> CPU s Int
-clv Addressing{storage=Implicit} = setFlagV False >> return 2
+clv Addressing{storage=Implicit} = alterStatus (setFlagV False) >> return 2
 
 -- | Set carry flag
 -- C = 1
 sec :: Addressing -> CPU s Int
-sec Addressing{storage=Implicit} = setFlagC True >> return 2
+sec Addressing{storage=Implicit} = alterStatus (setFlagC True) >> return 2
 
 -- | Set decimal mode flag
 -- D = 1
 sed :: Addressing -> CPU s Int
-sed Addressing{storage=Implicit} = setFlagD True >> return 2
+sed Addressing{storage=Implicit} = alterStatus (setFlagD True) >> return 2
 
 -- | Set interrupt disable flag
 -- I = 1
 sei :: Addressing -> CPU s Int
-sei Addressing{storage=Implicit} = setFlagI True >> return 2
+sei Addressing{storage=Implicit} = alterStatus (setFlagI True) >> return 2
 
 {-----------------------------------------------------------------------------
   * Load and Store operations.
@@ -633,7 +637,7 @@ sei Addressing{storage=Implicit} = setFlagI True >> return 2
 -- | Load memory into accumulator
 -- A,Z,N = M
 lda :: Addressing -> CPU s Int
-lda s = do fetchValue s >>= alterA . const >>= setZN
+lda s = do fetchValue s >>= alterA . const >>= alterStatus . setZN
            return . cycles . mode $ s
   where cycles IMM = 2
         cycles ZPG = 3
@@ -647,7 +651,7 @@ lda s = do fetchValue s >>= alterA . const >>= setZN
 -- | Load memory into index x
 -- X,Z,N = M
 ldx :: Addressing -> CPU s Int
-ldx s = do fetchValue s >>= alterX . const >>= setZN
+ldx s = do fetchValue s >>= alterX . const >>= alterStatus . setZN
            return . cycles . mode $ s
   where cycles IMM = 2
         cycles ZPG = 3
@@ -658,7 +662,7 @@ ldx s = do fetchValue s >>= alterX . const >>= setZN
 -- | Load memory into index y
 -- Y,Z,N = M
 ldy :: Addressing -> CPU s Int
-ldy s = do fetchValue s >>= alterY . const >>= setZN
+ldy s = do fetchValue s >>= alterY . const >>= alterStatus . setZN
            return . cycles . mode $ s
   where cycles IMM = 2
         cycles ZPG = 3
@@ -707,28 +711,28 @@ st' val a = do
 -- Z,N,X = A
 tax :: Addressing -> CPU s Int
 tax Addressing{storage=Implicit} = do
-  getA >>= alterX . const >>= setZN
+  getA >>= alterX . const >>= alterStatus . setZN
   return 2
 
 -- | Transfer A to Y
 -- Z,N,Y = A
 tay :: Addressing -> CPU s Int
 tay Addressing{storage=Implicit} = do
-  getA >>= alterY . const >>= setZN
+  getA >>= alterY . const >>= alterStatus . setZN
   return 2
 
 -- | Transfer X to A
 -- Z,N,A = X
 txa :: Addressing -> CPU s Int
 txa Addressing{storage=Implicit} = do
-  getX >>= alterA . const >>= setZN
+  getX >>= alterA . const >>= alterStatus . setZN
   return 2
 
 -- | Transfer Y to A
 -- Z,N,A = Y
 tya :: Addressing -> CPU s Int
 tya Addressing{storage=Implicit} = do
-  getY >>= alterA . const >>= setZN
+  getY >>= alterA . const >>= alterStatus . setZN
   return 2
 
 {-----------------------------------------------------------------------------
@@ -738,14 +742,15 @@ tya Addressing{storage=Implicit} = do
 -- SP = X
 txs :: Addressing -> CPU s Int
 txs Addressing{storage=Implicit} = do
-  getX >>= alterSP . const . fromIntegral >>= setZN . fromIntegral
+  regX <- getX >>= alterSP . const . fromIntegral
+  alterStatus . setZN . fromIntegral $ regX
   return 2
 
 -- | Transfer SP to X
 -- Z,N,X = SP
 tsx :: Addressing -> CPU s Int
 tsx Addressing{storage=Implicit} = do
-  getSP >>= alterX . const . fromIntegral >>= setZN
+  getSP >>= alterX . const . fromIntegral >>= alterStatus . setZN
   return 2
 
 -- | Push a to stack
@@ -759,14 +764,14 @@ pha Addressing{storage=Implicit} = do
 -- M(SP) = P
 php :: Addressing -> CPU s Int
 php Addressing{storage=Implicit} = do
-  setFlagB True >> getStatus >>= push
+  alterStatus (setFlagB True) >> getStatus >>= push
   return 3
 
 -- | Pull a from stack
 -- A,Z,N = M(SP)
 pla :: Addressing -> CPU s Int
 pla Addressing{storage=Implicit} = do
-  pull >>= \val -> setA val >> setZN val
+  pull >>= \val -> setA val >> alterStatus (setZN val)
   return 4
 
 -- | Pull status from stack

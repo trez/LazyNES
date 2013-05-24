@@ -67,7 +67,7 @@ adcTest = do
     Prelude.and <$> mapM test testCasesADC
   where
     test ((a, v, c), (v', cF, oF)) = do
-      setFlagC c
+      alterStatus $ setFlagC c
       setA a
       adc $ makeConstantValue v
       b1 <- (v' ==) <$> getA
@@ -93,7 +93,7 @@ sbcTest = do
     Prelude.and <$> mapM test testCasesSBC
   where
     test ((a, v, c), (v', nF, cF, oF)) = do
-      setFlagC c
+      alterStatus $ setFlagC c
       setA a
       sbc $ makeConstantValue v
       b1 <- (v' ==) <$> getA
@@ -102,16 +102,28 @@ sbcTest = do
       b4 <- (oF ==) <$> getFlagV
       return (b1 && b2 && b3 && b4)
 
+
+-- A M c | N C V
+-- ------+------
+-- 0 0 0 | 1 0 0   0 -  0 - 1 + 0 = -1
+-- 0 0 1 | 0 1 0   0 -  0 - 1 + 1 =  0
+-- 0 1 0 | 0 0 0   0 - -1 - 1 + 0 =  0
+-- 0 1 1 | 1 0 1   0 - -1 - 1 + 1 =  1
+-- 1 0 0 | 0 1 1  -1 -  0 - 1 + 0 = -2
+-- 1 0 1 | 1 1 0  -1 -  0 - 1 + 1 = -1
+-- 1 1 0 | 1 0 0  -1 - -1 - 1 + 0 = -1
+-- 1 1 1 | 0 1 0  -1 - -1 - 1 + 1 =  0
+testCasesSBC :: [((Operand, Operand, Bool), (Operand, Bool, Bool, Bool))]
 testCasesSBC =
- --    A - M - 1 (+'C')  =  Res 'N'    'C'    'V'
-    [((0,  0,    False),   (-1, True,  False, False))  --  0 -  0 - 1 + 0 = -1
-    ,((0,  0,    True),    (0,  False, True,  False))  --  0 -  0 - 1 + 1 =  0
-    -- ,((0,  1,    False),   (0,  False, False, False))  --  0 - -1 - 1 + 0 =  0
-    -- ,((0,  1,    True),    (1,  True,  False, True))   --  0 - -1 - 1 + 1 =  1
-    -- ,((1,  0,    False),   (-2, False, True,  True))   -- -1 -  0 - 1 + 0 = -2
-    -- ,((1,  0,    True),    (-1, True,  True,  False))  -- -1 -  0 - 1 + 1 = -1
-    ,((1,  1,    False),   (-1, True,  False, False))  -- -1 -  0 - 1 + 0 = -1
-    ,((1,  1,    True),    (0,  False, True,  False))  -- -1 -  0 - 1 + 1 =  0
+ --    A -  M - 1 (+'C')  =  Res 'N'    'C'    'V'
+    [((0,   0,    False),   (-1, True,  False, False))  --  0 -  0 - 1 + 0 = -1
+    ,((0,   0,    True),    (0,  False, True,  False))  --  0 -  0 - 1 + 1 =  0
+    ,((0,  -1,    False),   (0,  False, False, False))  --  0 - -1 - 1 + 0 =  0
+    ,((0,  -1,    True),    (1,  True,  False, True))   --  0 - -1 - 1 + 1 =  1
+    ,((-1,  0,    False),   (-2, False, True,  True))   -- -1 -  0 - 1 + 0 = -2
+    ,((-1,  0,    True),    (-1, True,  True,  False))  -- -1 -  0 - 1 + 1 = -1
+    ,((-1,  1,    False),   (-1, True,  False, False))  -- -1 -  0 - 1 + 0 = -1
+    ,((-1,  1,    True),    (0,  False, True,  False))  -- -1 -  0 - 1 + 1 =  0
     ]
 
 -- ---------------------------------------------------------------------------
@@ -122,19 +134,19 @@ branchTest = do
     writeMemory (pc+1) 0x06 -- +6
 
     -- Execute instruction
-    setFlagC False
+    alterStatus $ setFlagC False
     cycles1 <- fetchExecuteTest
     pc1 <- getPC
 
     -- Execute instruction again.
     setPC pc
-    setFlagC True
+    alterStatus $ setFlagC True
     cycles2 <- fetchExecuteTest
     pc2 <- getPC
 
     -- Execute instruction again.
     setPC pc
-    setFlagC True
+    alterStatus $ setFlagC True
     writeMemory (pc+1) 125  -- +125
     cycles3 <- fetchExecuteTest
     pc3 <- getPC
@@ -153,7 +165,7 @@ benchTest :: Integer -> CPU s Bool
 benchTest maxCycles = do
     setPC 0x8000
     setA 10
-    setFlagC False
+    alterStatus $ setFlagC False
     writeMemory 0x9000 10
     writeMemory 0x8000 0x6D -- ADC ABS
     writeMemory 0x8001 0x00 -- Mem Addr LSB: 00 \
@@ -169,13 +181,13 @@ benchTest maxCycles = do
     a <- getA
     c <- getFlagC
     v <- getFlagV
-    trace
-      (  "A:"             ++ show a
-      ++ " C:"            ++ show c
-      ++ " V:"            ++ show v
-      ++ " Instructions:" ++ show instructions
-      ++ " Cycles:"       ++ show maxCycles ++ "\n" )
-      return $ (a == 20)
+--    trace
+--      (  "A:"             ++ show a
+--      ++ " C:"            ++ show c
+--      ++ " V:"            ++ show v
+--      ++ " Instructions:" ++ show instructions
+--      ++ " Cycles:"       ++ show maxCycles ++ "\n" )
+    return $ (a == 20)
 
 loopTest :: Integer -> Integer -> CPU s Integer
 loopTest (!i) (!n) | n > 0 = do m <- fromIntegral <$> fetchExecuteTest

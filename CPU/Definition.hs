@@ -80,7 +80,7 @@ data CPUEnv s = CPUEnv
     , yReg    :: STRef s Operand -- ^ Y register, 8 bit
     , sp      :: STRef s Operand -- ^ Stack pointer, 8 bit
     , pc      :: STRef s Address -- ^ Program counter, 16 bit
-    , status  :: STRef s Operand -- ^ Status register, 8 bit
+    , status  :: STRef s Status  -- ^ Status register, 8 bit
     , lowMem  :: Memory s        -- ^ Memory range 0000 - 07FF
     , ppuMem  :: Memory s        -- ^ Memory range 2000 - 2007
     , uppMem  :: Memory s        -- ^ Memory range 4000 - FFFF
@@ -210,24 +210,20 @@ pull = do
   * Status register including flags.
 -----------------------------------------------------------------------------}
 -- |
-getStatus :: CPU s Operand
+getStatus :: CPU s Status
 getStatus = getVar status
 
 -- |
-setStatus :: Operand -> CPU s ()
+setStatus :: Status -> CPU s ()
 setStatus = setVar status
 
 -- |
-alterStatus :: (Operand -> Operand) -> CPU s ()
+alterStatus :: (Status -> Status) -> CPU s ()
 alterStatus = alterVar_ status
 
 -- | Get bit `x` of status.
 getFlagBit :: Int -> CPU s Bool
 getFlagBit x = (`testBit` x) <$> getStatus
-
--- | Set bit `x` of status according to bool.
-setFlagBit :: Int -> Bool -> CPU s ()
-setFlagBit x = alterStatus . bitBool x
 
 getFlagC, getFlagZ, getFlagI, getFlagD, getFlagB, getFlagQ, getFlagV
     , getFlagN :: CPU s Bool
@@ -241,24 +237,23 @@ getFlagV = getFlagBit 6
 getFlagN = getFlagBit 7
 
 setFlagC, setFlagZ, setFlagI, setFlagD, setFlagB, setFlagQ, setFlagV
-    , setFlagN :: Bool -> CPU s ()
-setFlagC = setFlagBit 0
-setFlagZ = setFlagBit 1
-setFlagI = setFlagBit 2
-setFlagD = setFlagBit 3
-setFlagB = setFlagBit 4
-setFlagQ = setFlagBit 5
-setFlagV = setFlagBit 6
-setFlagN = setFlagBit 7
+    , setFlagN :: Bool -> (Status -> Status)
+setFlagC = bitBool 0
+setFlagZ = bitBool 1
+setFlagI = bitBool 2
+setFlagD = bitBool 3
+setFlagB = bitBool 4
+setFlagQ = bitBool 5
+setFlagV = bitBool 6
+setFlagN = bitBool 7
 
 -- | Set Z if operand is zero and set N flag if operand has signed bit set.
 -- > do setZN 0
 -- >    (True  ==) <$> getFlagZ
 -- >    (False ==) <$> getFlagN
-setZN :: Operand -> CPU s ()
-setZN oper = do
-    setFlagZ $ oper == 0
-    setFlagN $ oper `testBit` 7 -- check if last bit is set.
+setZN :: Operand -> (Status -> Status)
+setZN oper = setFlagZ (oper == 0)
+           . setFlagN (oper `testBit` 7) -- check if last bit is set.
 
 {-----------------------------------------------------------------------------
   * Memory.
