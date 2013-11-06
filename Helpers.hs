@@ -30,7 +30,7 @@ bitBool :: Bits a => Int -> Bool -> a -> a
 bitBool n b = if b then (`setBit` n) else (`clearBit` n)
 
 -- | Return a bits representation of bool.
-boolBit :: Bits a => Bool -> a
+boolBit :: (Num a, Bits a) => Bool -> a
 boolBit True  = 1
 boolBit False = 0
 
