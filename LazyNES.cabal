@@ -1,0 +1,15 @@
+Name:                LazyNES
+Version:             0.1
+Description:         Super cool mega lambdas
+License:             GPL
+License-file:        LICENSE
+Author:              TBD
+Maintainer:          TBD
+Build-Type:          Simple
+Cabal-Version:       >=1.2
+
+Executable LazyNES 
+    Main-is:           Main.hs 
+    hs-source-dirs:    src
+    Build-Depends:     base >= 3 && < 5, array, mtl
+
