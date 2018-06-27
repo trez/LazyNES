@@ -181,13 +181,14 @@ benchTest maxCycles = do
     a <- getA
     c <- getFlagC
     v <- getFlagV
---    trace
---      (  "A:"             ++ show a
---      ++ " C:"            ++ show c
---      ++ " V:"            ++ show v
---      ++ " Instructions:" ++ show instructions
---      ++ " Cycles:"       ++ show maxCycles ++ "\n" )
-    return $ (a == 20)
+    return $ trace
+      (  "A:"             ++ show a
+      ++ " C:"            ++ show c
+      ++ " V:"            ++ show v
+      ++ " Instructions:" ++ show instructions
+      ++ " Cycles:"       ++ show maxCycles ++ "\n" 
+      )
+     (a == 20)
 
 loopTest :: Integer -> Integer -> CPU s Integer
 loopTest (!i) (!n) | n > 0 = do m <- fromIntegral <$> fetchExecuteTest

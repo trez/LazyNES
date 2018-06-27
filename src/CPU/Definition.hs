@@ -237,7 +237,7 @@ getFlagV = getFlagBit 6
 getFlagN = getFlagBit 7
 
 setFlagC, setFlagZ, setFlagI, setFlagD, setFlagB, setFlagQ, setFlagV
-    , setFlagN :: Bool -> (Status -> Status)
+    , setFlagN :: Bool -> Status -> Status
 setFlagC = bitBool 0
 setFlagZ = bitBool 1
 setFlagI = bitBool 2
@@ -251,7 +251,7 @@ setFlagN = bitBool 7
 -- > do setZN 0
 -- >    (True  ==) <$> getFlagZ
 -- >    (False ==) <$> getFlagN
-setZN :: Operand -> (Status -> Status)
+setZN :: Operand -> Status -> Status
 setZN oper = setFlagZ (oper == 0)
            . setFlagN (oper `testBit` 7) -- check if last bit is set.
 
