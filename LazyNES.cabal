@@ -1,4 +1,4 @@
-Name:                LazyNES
+Name:                lazynes
 Version:             0.1
 Description:         Super cool mega lambdas
 License:             GPL
@@ -6,10 +6,19 @@ License-file:        LICENSE
 Author:              TBD
 Maintainer:          TBD
 Build-Type:          Simple
-Cabal-Version:       >=1.2
+Cabal-Version:       >=1.8
 
-Executable LazyNES 
-    Main-is:           Main.hs 
+Library
     hs-source-dirs:    src
-    Build-Depends:     base >= 3 && < 5, array, mtl
+    build-depends:     base >= 3, array, mtl
 
+Executable LazyNES
+    main-is:           Main.hs
+    hs-source-dirs:    src
+    build-depends:     base >= 3, array, mtl, lazynes
+
+Test-Suite test
+    main-is:           test.hs
+    hs-source-dirs:    src, test
+    build-depends:     base, tasty, tasty-hunit, array, mtl, lazynes
+    type:              exitcode-stdio-1.0

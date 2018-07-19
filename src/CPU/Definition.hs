@@ -7,6 +7,7 @@ module CPU.Definition
       CPU
     , runCPU
     , CPUEnv (..)
+    , initCPU
     , (<$>)
 
       -- * Accumulator A
@@ -85,6 +86,20 @@ data CPUEnv s = CPUEnv
     , ppuMem  :: Memory s        -- ^ Memory range 2000 - 2007
     , uppMem  :: Memory s        -- ^ Memory range 4000 - FFFF
     }
+
+-- | Initial CPU State.
+initCPU :: ST s (CPUEnv s)
+initCPU = do
+    return CPUEnv
+        `ap` newSTRef 0x0                    -- A
+        `ap` newSTRef 0x0                    -- X
+        `ap` newSTRef 0x0                    -- Y
+        `ap` newSTRef 0xFF                   -- SP
+        `ap` newSTRef 0x8000                 -- PC
+        `ap` newSTRef 0x0                    -- Status
+        `ap` newArray (0x0000, 0x07FF) 0x0   -- Lower memory
+        `ap` newArray (0x2000, 0x2007) 0x0   -- PPU registers
+        `ap` newArray (0x4000, 0xFFFF) 0x0   -- Upper memory
 
 -- ---------------------------------------------------------------------------
 -- Functions for dealing with the environment.
