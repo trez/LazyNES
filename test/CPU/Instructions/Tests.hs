@@ -20,7 +20,7 @@ data ExpectedOutput = ExpectedOutput { res :: Operand, flagC :: Bool, flagV :: B
 
 data ArithOP = ADC | SBC deriving Show
 
-adcTests = testGroup "ADC tests" $ testArith ADC $
+adcTests = testArithmeticOp ADC
   [ ((InputValues 88   70   True),  (ExpectedOutput 159  False True  True))
   , ((InputValues 58   46   True),  (ExpectedOutput 105  False False False))
   , ((InputValues 1    1    True),  (ExpectedOutput 3    False False False))
@@ -31,7 +31,7 @@ adcTests = testGroup "ADC tests" $ testArith ADC $
   , ((InputValues 1    0xFF False), (ExpectedOutput 0    True  False False))
   ]
 
-sbcTests = testGroup "SBC tests" $ testArith SBC $
+sbcTests = testArithmeticOp SBC
   [ ((InputValues 0    0    False), (ExpectedOutput (-1) False False True))
   , ((InputValues 0    0    True),  (ExpectedOutput 0    True  False False))
   , ((InputValues 0    (-1) False), (ExpectedOutput 0    False False False))
@@ -42,9 +42,11 @@ sbcTests = testGroup "SBC tests" $ testArith SBC $
   , ((InputValues (-1) 1    True),  (ExpectedOutput (-2) True  False True))
   ]
 
-testArith :: ArithOP -> [(InputValues, ExpectedOutput)] -> [TestTree]
-testArith op = map (\(i, (inData, outData)) -> testCase (show op ++ " #" ++ show i) $ arithTest op inData outData )
-             . zip [1..]
+testArithmeticOp :: ArithOP -> [(InputValues, ExpectedOutput)] -> TestTree
+testArithmeticOp op = testGroup (tOp ++ " tests")
+                    . map (\(i, test) -> testCase (tOp ++ " #" ++ show i) $ uncurry (arithTest op) test )
+                    . zip [1..]
+  where tOp = show op
 
 arithTest :: ArithOP -> InputValues -> ExpectedOutput -> Assertion
 arithTest op inp expected = do
